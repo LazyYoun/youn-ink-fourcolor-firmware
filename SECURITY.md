@@ -1,22 +1,54 @@
 # Security Notes
 
-## Secrets
+本文件说明当前公开固件和开发工具涉及的主要安全与隐私边界。它不代表对未公开后端、生产 OTA 服务或商业云平台的完整安全审计。
 
-- Do not commit `.env` or any credential-bearing local config file.
-- Rotate STT provider keys immediately if they are ever pasted into an issue, PR, or commit.
-- Use `.env.example` as the only tracked configuration template.
+## 凭据与设备数据
 
-## Audio And Transcript Data
+- 不要提交 `.env`、Wi-Fi SSID/密码、API Key、OTA 凭据、私有证书或内部服务地址；
+- 不要在源码中硬编码真实凭据，即使它们只用于临时测试；
+- 设备 Flash/NVS、构建目录、日志和串口输出可能包含网络配置、设备标识或调试数据，分享前必须脱敏；
+- 凭据一旦出现在提交、Issue、PR、聊天记录或公开日志中，应立即吊销或更换，不能只删除文本。
 
-- This bridge sends captured audio to the configured STT provider.
-- Review provider retention, logging, and privacy settings before using real customer or private source code prompts.
-- Debug WAV files are only written when `SAVE_DEBUG_WAV=1`.
+## 本地网络服务
 
-## Local Session Data
+固件可以启动 SoftAP 或局域网 HTTP 服务，用于配网、图片上传和设备管理。使用这些功能时：
 
-- If you run with `SEND_TARGET=codex_exec`, Codex may persist its own session history in the current user's profile directory.
-- This repository does not intentionally write credentials into the repo tree, but local tooling may keep per-user history outside the repository.
+- 只在可信的本地网络中启用；
+- 不要通过端口转发、反向代理或公网防火墙规则直接暴露设备服务；
+- 检查实际固件版本的认证、上传限制和输入校验，不要假设本地网络天然可信；
+- 上传图片或修改设备配置前确认目标设备、内容和文件来源；
+- 测试完成后关闭不再需要的 AP/LAN 服务。
 
-## Reporting
+## OTA 与固件刷写
 
-If you find a vulnerability, avoid posting raw secrets publicly. Rotate the affected secret first, then open an issue with a sanitized report.
+- 只使用来源和版本可确认的固件；
+- Note4 与 Note4C 固件不可混刷，刷写前再次核对设备和屏幕类型；
+- 修改 OTA 地址、签名或更新流程时，不要在 PR 中暴露生产密钥和内部基础设施；
+- 编译成功不证明固件安全或适合生产环境，刷写前应检查变更和第三方依赖。
+
+## 音频、文本与第三方服务
+
+硬件包含麦克风和扬声器，仓库也保留了音频及对话相关实验组件。如果派生项目连接语音识别、LLM 或 TTS 服务：
+
+- 音频、转写文本和模型请求可能离开本地设备；
+- 使用真实语音或私人内容前，应确认服务商的保存、训练、日志和删除政策；
+- 默认使用合成或无敏感信息的测试数据；
+- 不要在公开问题报告中上传原始录音、完整转写、私人照片或用户内容。
+
+## 公开问题报告
+
+普通稳定性问题可以提交脱敏后的 Issue，并包含最小复现步骤、固件基线和硬件型号。提交前请删除：
+
+- Wi-Fi 名称和密码；
+- API Key、Token、证书和签名；
+- MAC 地址、设备 ID、局域网/公网 IP；
+- 内部域名、服务器路径和账户名；
+- 录音、照片、转写及其他个人数据。
+
+## 漏洞报告
+
+不要在公开 Issue 或 PR 中发布可直接利用的漏洞细节、原始密钥或用户数据。
+
+优先使用仓库所有者或产品支持方提供的非公开联系渠道。如果暂时找不到安全报告渠道，可以先创建一个不含利用细节和敏感信息的 Issue，请维护者提供私下联系方式。
+
+如果漏洞已经造成凭据暴露或设备被访问，应先隔离设备、关闭相关网络服务并轮换凭据，再进行后续报告和修复。

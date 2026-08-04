@@ -1,201 +1,120 @@
 # Youn Ink Four Color
 
-这是一个面向 ESP32-S3 墨水屏设备的个人 AI 助手项目。当前主线由三部分组成：ESP32 固件、Python 后端服务、以及图片/待办/设备管理页面。
+本仓库提供面向 ZECTRIX Note4C 的公开参考固件与开发工具。当前固件基于 ESP-IDF，目标硬件为 ESP32-S3 与 4.2 英寸 400 × 300 电子墨水屏，默认支持黑、白、红、黄四色 BWRY 面板，同时保留 1bpp 黑白面板配置。
 
-项目重点不是一个通用 npm 包，而是一套可以真实运行在墨水屏设备上的系统：语音对话、TTS 播放、待办同步、天气/新闻/日历/电子书/相册页面、AP 传图、OTA 固件管理，以及适配四色屏的 RawDraw UI。
+> [!IMPORTANT]
+> Note4C 与黑白版 Note4 使用的屏幕和固件不同，请勿混刷。本仓库是二次开发起点，不包含 Note4 的官方成品固件或开箱即用的 AI 体验。
 
-## 当前状态
+## 当前公开范围
 
-- 后端已经切换为 `server/` 下的 Python 服务，根目录旧 Node `scripts/` 已删除。
-- 固件主界面使用 RawDraw 渲染，默认按四色屏设计，同时保留 1bpp 黑白屏兼容。
-- 主题暂时只保留一个默认视觉方向：偏任天堂感的四色主题，强调红、黄、黑、白的语义使用。
-- 图片传输支持 1bpp 黑白与 2bpp 四色 BWRY 两种格式。
-- 根目录 `.gitignore` 已排除构建产物、日志、pid、数据库、本地配置和密钥文件。
+已接入当前固件主流程的功能包括：
+
+- RawDraw 直接帧缓冲 UI，默认开放相册与设置页面；
+- Wi-Fi Station、SoftAP 配网及网络状态显示；
+- AP/LAN HTTP 图片上传、本地图片存储、相册浏览与定时轮播；
+- 1bpp 黑白图片与 2bpp BWRY 四色图片显示；
+- 物理按键、RTC/SNTP 时间、电池与充电状态、深度休眠；
+- 四色屏刷新合并、差异检测及异步刷新任务。
+
+仓库中还保留了对话、天气、新闻、日历、电子书等页面渲染器和流式处理组件。它们并非全部出现在默认导航中，也不代表相应数据源或端到端服务已经在公开仓库中接通。
+
+## 公开仓库边界
+
+当前公开快照不包含完整的 Python AI 后端、Web 管理前端或生产部署配置：
+
+- `server/` 目前只包含 `mock_client.py`，用于连接另行部署的兼容 WebSocket 服务；
+- 仓库中没有可独立启动的 `llmserve.py`、`push_image.py` 或对应服务端依赖文件；
+- 仓库中没有 `frontend/`、根目录 `package.json` 或完整管理后台源码；
+- 语音识别、LLM、TTS、云端同步及 OTA 服务端不属于当前公开快照可独立复现的功能。
+
+请只根据仓库中实际存在的代码和文档判断公开能力，不要将实验性 renderer、接口占位或模拟客户端视为完整产品功能。
 
 ## 目录结构
 
 ```text
 .
-├── firmware/        ESP32-IDF 固件，RawDraw UI、页面渲染、屏幕驱动、AP 传图
-├── server/          Python 后端，WebSocket 对话、TTS、Discovery、图片推送、OTA API
-├── frontend/        管理前端源码，使用独立的 package/pnpm 工作流
-├── docs/            历史设计文档和实现记录
-├── documents/       项目资料
-└── package.json     仅保留仓库级辅助命令，不再作为旧 Node 服务入口
+├── docs/                         图片转换和局域网推图协议文档
+├── firmware/                     ESP-IDF 固件、板级适配、RawDraw UI 与开发工具
+├── server/
+│   └── mock_client.py            外部兼容服务的协议模拟客户端
+├── CONTRIBUTING.md               贡献与验证要求
+├── LICENSE                       仓库根目录许可证
+└── SECURITY.md                   安全与隐私说明
 ```
 
-注意：`firmware/scripts/` 和 `frontend/scripts/` 仍然有用，分别属于固件工具和前端工具；删除的是根目录历史遗留的 `scripts/`。
+## 构建固件
 
-## 后端服务
+### 前置条件
 
-后端入口是 `server/llmserve.py`，推荐通过 `server/start.sh` 管理。服务默认端口：
+- Git；
+- Python 3；
+- ESP-IDF。组件清单声明最低版本为 `>=5.4.0`；近期合并的修复 PR 报告使用 ESP-IDF v6.0.0 编译通过，其他版本需自行验证；
+- 支持数据传输的 USB 线仅在烧录或真机验证时需要。
 
-| 端口 | 协议 | 用途 |
-| --- | --- | --- |
-| `9001` | WebSocket | ESP32 语音、LLM、TTS、同步消息 |
-| `8766` | UDP | 设备发现 |
-| `8766` | HTTP | 图片推送、设备图片管理、OTA API |
-| `8090` | HTTP | 独立管理服务，可选 |
+### 基础编译
 
-### 安装依赖
+先加载 ESP-IDF 环境，再从 `firmware/` 目录构建：
 
 ```bash
-cd server
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+cd firmware
+source /path/to/esp-idf/export.sh
+idf.py set-target esp32s3
+idf.py build
 ```
 
-### 启动服务
+Windows 用户请使用 ESP-IDF 提供的 PowerShell/Command Prompt 环境，或先运行对应的 `export.ps1`。
 
-```bash
-export DASHSCOPE_API_KEY=你的百炼APIKey
-cd server
-./start.sh start
+`idf.py build` 通过只证明代码可以编译，不等同于固件已经在 Note4C 真机上验证。
+
+### 发布打包脚本的限制
+
+`firmware/build.sh` 和 `firmware/scripts/release.py` 面向完整发布环境。当前脚本需要 `firmware/main/boards/zectrix-s3-epaper-4.2/config.json`，该文件不在公开快照中，因此不能把 `build.sh` 作为公开仓库的开箱即用构建入口。
+
+请勿自行猜测或提交内部板型、OTA 地址、Wi-Fi 凭据及生产部署配置。若只需要验证公开源码，请使用上面的基础 `idf.py build` 路径。
+
+## 固件配置
+
+Kconfig 提供两种面板配置：
+
+```text
+ZECTRIX_EPD_PANEL_4COLOR_SSD2683  四色 BWRY SSD2683 面板
+ZECTRIX_EPD_PANEL_1BPP            1bpp 黑白面板
 ```
 
-常用命令：
+Note4C 默认使用四色配置。修改面板类型后必须重新完整编译，并在烧录前再次确认设备型号。
 
-```bash
-cd server
-./start.sh status
-./start.sh logs
-./start.sh restart
-./start.sh stop
-```
+## 图片与设备管理
 
-也可以从仓库根目录调用：
+设备端可以启动 SoftAP 或局域网 HTTP 服务接收图片。相关实现和协议说明位于：
 
-```bash
-npm run server:start
-npm run server:status
-npm run server:logs
-```
+- `firmware/main/ui/renderers/rawdraw/ap_transfer_server.cc`；
+- `docs/LAN_PHOTO_PUSH_API.md`；
+- `docs/inkscreen_image_converter.js`；
+- `firmware/tools/`。
 
-### 本地模拟设备
-
-```bash
-cd server
-python3 mock_client.py --server ws://127.0.0.1:9001
-```
-
-## 图片和设备管理
-
-图片 HTTP API 由 `server/push_image.py` 挂到 `8766` 端口。它支持：
-
-- 上传图片文件并转换后推送到设备。
-- 选择 `1bpp` 黑白格式或 `2bpp` 四色 BWRY 格式。
-- 查询设备图片列表。
-- 删除设备图片。
-- 上传固件并提供 OTA 下载。
-
-常用接口：
-
-```bash
-curl http://localhost:8766/api/status
-curl http://localhost:8766/api/images
-```
-
-上传图片示例：
-
-```bash
-curl -X POST http://localhost:8766/api/upload_image \
-  -F "image=@/path/to/photo.jpg" \
-  -F "format=bwry2bpp" \
-  -F "title=照片标题"
-```
-
-设备进入 AP 传图模式后，手机连接设备热点并访问：
+设备进入 SoftAP 模式后，通常可通过以下地址打开本地页面：
 
 ```text
 http://192.168.4.1
 ```
 
-## 固件
+局域网地址由设备获得的 IP 决定。不要把设备的本地 HTTP 服务直接暴露到公网。
 
-固件位于 `firmware/`，基于 ESP-IDF。默认面向 ZecTrix ESP32-S3 4.2 寸墨水屏，支持四色 BWRY 屏，也保留 1bpp 黑白屏配置。
+## 开发约定
 
-### 编译
+- 四色屏整屏刷新时间较长，交互设计应优先考虑低频更新、刷新合并和明确的等待状态；
+- RawDraw 内部使用语义颜色与主题 token，业务页面不要直接散落裸颜色常量；
+- 修改刷新、配网、电源或存储逻辑时，应明确区分编译验证、模拟验证和 Note4C 真机验证；
+- 不要提交 `.env`、Wi-Fi 凭据、API Key、`firmware/build/`、`firmware/sdkconfig`、发布包或设备私有数据。
 
-```bash
-cd firmware
-source ~/Documents/esp/v6.0/esp-idf/export.sh
-idf.py build
-```
+提交修改前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。安全与隐私相关问题请阅读 [SECURITY.md](SECURITY.md)。
 
-根目录辅助命令：
+## 许可证与第三方组件
 
-```bash
-npm run firmware:build
-```
+根目录源码、`firmware/` 及其第三方组件可能分别带有许可证和版权声明。使用、修改或再分发前，请同时检查：
 
-### 屏幕配置
+- 根目录 `LICENSE`；
+- `firmware/LICENSE`；
+- 各组件目录中的 `LICENSE`、`license.txt`、`idf_component.yml` 和第三方 NOTICE。
 
-固件 Kconfig 中有屏幕类型选择：
-
-```text
-ZECTRIX_EPD_PANEL_4COLOR_SSD2683  四色 BWRY 屏
-ZECTRIX_EPD_PANEL_1BPP            黑白 1bpp 屏
-```
-
-如果要刷回旧黑白屏，先在 `idf.py menuconfig` 中切到 `1bpp black/white EPD`，再重新构建烧录。RawDraw 主题层会把红/黄语义色降级成黑白可读样式。
-
-## UI 说明
-
-固件 UI 目前走 RawDraw 组件体系，重点页面包括：
-
-- 对话：显示用户语音、识别状态、AI 回复。
-- 待办：本地展示、服务端同步、完成/删除/编辑。
-- 设置：音量、亮度、主题、网络、同步、OTA 等。
-- 相册：缩略图列表、大图展示、AP 传图入口。
-- 天气/天气详情、新闻、黄历、年度进度、日历、电子书、日志。
-- 快速切换 Overlay：用于页面间快速跳转。
-
-四色屏主题层通过语义样式绘制组件，不建议在业务页面里继续新增裸 `RED/YELLOW/BLACK/WHITE`。新增 UI 时优先使用 RawDraw 组件和 theme token。
-
-## 环境变量
-
-常用后端环境变量：
-
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `DASHSCOPE_API_KEY` | 无 | 百炼 API Key，启动后端必需 |
-| `LISTEN_HOST` | `0.0.0.0` | WebSocket 监听地址 |
-| `LISTEN_PORT` | `9001` | WebSocket 端口 |
-| `DISCOVERY_PORT` | `8766` | UDP 发现端口 |
-| `PUSH_IMAGE_PORT` | `8766` | 图片/OTA HTTP API 端口 |
-| `TTS_WS_CHUNK_BYTES` | `8000` | TTS 推送分片大小 |
-| `TTS_WS_CHUNK_GAP_SEC` | `0.01` | TTS 分片发送间隔 |
-
-不要提交 `.env`、数据库、日志、pid、构建目录和固件产物。
-
-## Git 提交范围
-
-建议提交：
-
-- `firmware/main/`、`firmware/components/`、`firmware/partitions/` 等固件源码。
-- `server/*.py`、`server/static/`、`server/requirements.txt`、`server/DEPLOY.md`。
-- `frontend/src/`、`frontend/package.json`、`frontend/pnpm-lock.yaml` 等前端源码。
-- 根目录 README、文档、配置模板。
-
-不要提交：
-
-- `firmware/build/`
-- `firmware/managed_components/`
-- `firmware/sdkconfig`
-- `firmware/releases/`
-- `server/.env`
-- `server/todo.db`
-- `server/*.pid`
-- `server/*.log`
-- `frontend/.env*`
-- `frontend/dist/`
-- `node_modules/`
-
-## 远程仓库
-
-当前仓库已初始化为普通 Git 仓库，远程为 Codeup：
-
-```text
-https://codeup.aliyun.com/697618326286f1d6b900fd02/forothers/youn-ink-fourcolor-repo.git
-```
+保留原始版权和许可证声明，不要用根目录许可证覆盖第三方组件自己的许可条件。

@@ -1,183 +1,127 @@
 # Contributing
 
-## Setup
+感谢你为 Youn Ink Four Color / ZECTRIX Note4C 公开参考固件提供改进。本指南只覆盖当前 GitHub 仓库中实际公开的固件、工具和文档。
 
-1. Install Node.js 20 or newer.
-2. Run `npm install`.
-3. Copy `.env.example` to `.env`.
-4. Fill in your own provider credentials.
+## 开始之前
 
-## Development
+1. 阅读 `README.md`，确认当前公开范围和构建限制。
+2. 搜索现有 Issue 和 Pull Request，避免重复工作。
+3. 一个 PR 只解决一个明确问题；不要把重构、功能扩展和无关格式化混在一起。
+4. 涉及屏幕、电源、配网、存储或按键行为时，先写清复现步骤和预期结果。
 
-- Run `npm test` before sending a change.
-- Use `MOCK_TRANSCRIPT` and `DRY_RUN_TEXT_INJECTION=1` for safe local testing.
-- Keep changes scoped; this repo is the host bridge, not the ESP32 firmware.
+如果你的修改依赖未公开的后端、板型配置或生产环境，请在 PR 中明确说明，不能把私有环境中的结果描述成公开仓库可复现。
 
-## Board Notes
+## 开发环境
 
-These notes are specific to the Zectrix S3 e-paper LAN mic firmware path and record the main issues hit during bring-up.
+基础要求：
 
-### 1. Post-flash freeze and dead buttons
+- Git；
+- Python 3；
+- ESP-IDF，组件清单要求 `>=5.4.0`；近期合并的修复 PR 报告使用 v6.0.0 编译通过，其他版本需自行验证；
+- Note4C 实机仅在真机验证时需要。
 
-Observed symptom:
+加载 ESP-IDF 环境后执行基础编译：
 
-- After flashing, the board could boot into `Finding ...` / `No Srv` and all buttons appeared dead.
-- A normal USB re-enumeration reset could recover it, which made the problem look like a networking issue even when the real failure was local input handling.
-
-Root cause:
-
-- In `CONFIG_ZECTRIX_LAN_MIC_MODE`, the board layer and `LanMicApp` were both creating button handlers for the same GPIOs.
-- The fix was to disable the board-level buttons in LAN mic mode and let `LanMicApp` own them exclusively.
-
-Relevant files:
-
-- `firmware/main/boards/zectrix-s3-epaper-4.2/zectrix-s3-epaper-4.2.cc`
-- `firmware/main/lan_mic_app.cc`
-
-Rule:
-
-- Do not re-enable board-level navigation buttons in LAN mic mode unless ownership is redesigned end-to-end.
-
-### 2. Flash reset path is not the same as a normal reboot
-
-Observed symptom:
-
-- The board could behave differently immediately after flashing than after a later USB reset or power cycle.
-- Some reset paths looked like "Wi-Fi or service reconnect broke", but the actual issue was the reset path itself.
-
-Root cause:
-
-- `esptool` post-flash reset behavior mattered on this board.
-- `watchdog_reset` / overly broad deep-sleep bounce logic was flaky after flash.
-- The stable path was:
-  - use `--after hard_reset` in `firmware/build_windows.ps1`
-  - keep the one-shot deep-sleep bounce narrowly scoped to `ESP_RST_SW`
-  - do not bounce `ESP_RST_EXT` after flashing
-
-Relevant files:
-
-- `firmware/build_windows.ps1`
-- `firmware/main/main.cc`
-
-Rule:
-
-- When debugging "works after USB reset but not right after flash", check the reset reason and flashing script before touching reconnect logic.
-
-### 3. Serial monitoring can change the behavior under test
-
-Observed symptom:
-
-- Opening the serial monitor after flashing could trigger a USB disconnect / reconnect sound and effectively reset the board again.
-- That masked the original "first boot after flash" behavior.
-
-Root cause:
-
-- The ESP32-S3 USB serial/JTAG path can re-enumerate on monitor attach or reset-related actions.
-
-Rule:
-
-- If the problem is "first boot after flash", avoid attaching a serial monitor until after reproducing the issue once.
-- Distinguish "flash first boot" from "boot after monitor-triggered USB reset".
-
-### 4. Reconnect bugs were partly host discovery state bugs
-
-Observed symptom:
-
-- After server restart, the board could briefly show `Will retry automatically`, then miss the recovery window and stay stuck in `Finding ...` / `Connect failed`.
-- Manual reset could recover it.
-
-Root cause:
-
-- The board originally dropped the last good discovered server URI too aggressively and could fall back to an outdated fixed IP.
-- The fix was to persist and reuse:
-  - cached last-good `wsUrl`
-  - paired `hostId`
-  - paired `hostName`
-- Reconnect order now matters: discovery -> cached URI -> optional fallback.
-
-Relevant files:
-
-- `firmware/main/lan_mic_app.cc`
-
-Rule:
-
-- For LAN deployments, do not depend on a hard-coded `CONFIG_LAN_MIC_SERVER_URI` as the primary path.
-- Treat fallback IP as debug-only or last-resort.
-
-### 5. Blocking reconnect work can look like a UI freeze
-
-Observed symptom:
-
-- During reconnect storms, the device could look half-dead: status text changed, but buttons and UI response were delayed enough to be misleading.
-
-Root cause:
-
-- Synchronous reconnect work in the main loop made the app look frozen even when it had not actually crashed.
-- Running reconnect attempts in a dedicated FreeRTOS task fixed the responsiveness issue.
-
-Relevant files:
-
-- `firmware/main/lan_mic_app.h`
-- `firmware/main/lan_mic_app.cc`
-
-Rule:
-
-- Keep long reconnect / discovery work off the main UI loop.
-
-### 6. Current regression checklist for board changes
-
-When touching board bring-up, reconnect, or flashing behavior, re-test these exact cases:
-
-1. Flash -> automatic reboot -> board should not freeze and buttons must work.
-2. Flash -> do not open serial monitor -> verify the first boot behavior separately.
-3. Server restart while board is online -> board must reconnect without manual reset.
-4. Miss the short reconnect window intentionally -> board must still reconnect later.
-5. Wi-Fi reset / network reset -> paired host cache should clear as expected.
-6. Record multiple segments -> `BOOT Add | UP Send | DN Undo` flow still works.
-
-## Release
-
-### npm package
-
-Package name: `@mac20777/vibecoding-voice`
-
-Recommended release flow:
-
-1. Bump `package.json` and `package-lock.json`.
-2. Commit the version bump.
-3. Create an annotated tag such as `v0.2.0`.
-4. Push branch and tag: `git push origin <branch> --follow-tags`
-5. Publish to npm.
-
-Important: on this machine, `NODE_AUTH_TOKEN=... npm publish` was not sufficient for publishing. npm only accepted the token when it was provided through an `.npmrc` entry for the registry.
-
-Use a temporary user config file instead of editing the real user config:
-
-```powershell
-$tempNpmrc = Join-Path (Resolve-Path .) '.tmp-npmrc'
-Set-Content -Path $tempNpmrc -Value '//registry.npmjs.org/:_authToken=YOUR_TOKEN' -NoNewline
-$env:NPM_CONFIG_USERCONFIG = $tempNpmrc
-npm publish --cache .npm-cache
-Remove-Item Env:NPM_CONFIG_USERCONFIG -ErrorAction SilentlyContinue
-Remove-Item $tempNpmrc -ErrorAction SilentlyContinue
+```bash
+cd firmware
+source /path/to/esp-idf/export.sh
+idf.py set-target esp32s3
+idf.py build
 ```
 
-Notes:
+Windows 用户应使用 ESP-IDF PowerShell/Command Prompt 环境，或运行对应的 `export.ps1`。
 
-- `npm publish --cache .npm-cache` successfully published `0.1.0` and `0.2.0`.
-- If npm returns `EOTP` while using a token, the token is not actually bypassing 2FA for publish.
-- Revoke any token that was pasted into chat or shell history after the release is complete.
+当前公开仓库不包含 `firmware/main/boards/zectrix-s3-epaper-4.2/config.json`。因此 `firmware/build.sh` 的发布打包路径不能作为全新检出的通用验证命令，也不要自行补造生产配置。
 
-### GitHub release
+## 可贡献内容
 
-After pushing the tag, create the GitHub release, for example:
+- `firmware/main/`：板级适配、RawDraw UI、网络、存储、音频、电源与刷新逻辑；
+- `firmware/tools/`、`firmware/scripts/`：开发和转换工具；
+- `server/mock_client.py`：公开协议模拟客户端；
+- `docs/`、`README.md`、`CONTRIBUTING.md`、`SECURITY.md`：公开文档。
 
-```powershell
-gh release create v0.2.0 --repo macheng2017/vibecoding-voice --title "v0.2.0"
+代码中存在但未接入默认导航或缺少公开数据源的 renderer，应视为实验性组件。新增入口前，需要同时说明数据来源、输入处理、刷新代价和退化行为。
+
+## 验证等级
+
+请在 PR 中明确列出你实际完成的最高验证等级，不要省略未验证边界。
+
+### 1. 静态检查
+
+- `git diff --check` 通过；
+- 文档引用的路径真实存在；
+- 没有提交密钥、设备数据、构建产物或机器专属路径。
+
+### 2. 完整编译
+
+- 从干净工作树运行 `idf.py set-target esp32s3` 和 `idf.py build`；
+- 记录 ESP-IDF 版本、目标芯片、固件大小和剩余分区空间；
+- 编译通过不等同于真机验证。
+
+### 3. 主机或模拟验证
+
+- 对图片转换、协议、纯逻辑或状态机运行可复现测试；
+- 写明测试脚本、输入、预期和实际结果；
+- 派生仓库中的测试必须注明不在本仓库内。
+
+### 4. Note4C 真机验证
+
+- 写明硬件型号、屏幕类型和固件基线；
+- 描述烧录、操作步骤及观察结果；
+- 不要把其他 ESP32-S3 板卡或黑白面板测试称为 Note4C 真机验证。
+
+## 建议回归清单
+
+修改相关模块时，至少检查对应项目：
+
+1. 全新编译和烧录后可以正常启动；
+2. 按键在启动、刷新及网络切换期间仍可正常响应；
+3. SoftAP 配网等待获得 IP 后才报告成功；
+4. AP/LAN 图片上传、存储、相册显示与删除符合预期；
+5. 四色图片映射正确，完整刷新结束后无明显错误帧；
+6. Wi-Fi 断开、重连和设备重启后状态一致；
+7. 深度休眠、唤醒、电池与充电状态没有回归；
+8. 不适用或无法验证的项目在 PR 中明确标注。
+
+## PR 内容要求
+
+建议使用以下结构：
+
+```markdown
+## 问题
+
+描述用户可见问题或开发障碍，以及可复现步骤。
+
+## 根因
+
+说明已确认的技术原因；如果只是推断，请明确标注。
+
+## 修改
+
+列出本 PR 实际改变的内容和刻意保持不变的边界。
+
+## 验证
+
+- ESP-IDF 版本：
+- 构建结果：
+- 主机/模拟测试：
+- Note4C 真机测试：
+
+## 未验证边界
+
+列出没有设备、服务或测试条件而无法确认的内容。
 ```
 
-## Secrets And Local Data
+文档 PR 也应写明核对过的路径、命令和公开边界。
 
-- Never commit `.env`.
-- Do not hardcode provider keys, local usernames, or machine-specific paths.
-- Prefer generic defaults like `codex` over absolute local shim paths.
+## 提交卫生
+
+- 只暂存与当前 PR 有关的文件；
+- 不提交 `firmware/build/`、`firmware/managed_components/`、`firmware/sdkconfig` 或 `firmware/releases/`；
+- 不提交 `.env`、Wi-Fi 名称和密码、API Key、OTA 凭据、设备数据库、日志、录音或用户图片；
+- 不写入本机用户名、绝对路径和内部服务器地址；
+- 保留根目录、`firmware/` 和第三方组件各自的许可证与版权声明。
+
+## 安全问题
+
+不要在公开 Issue 或 PR 中粘贴密钥、Wi-Fi 凭据、未脱敏日志、录音、照片或可直接利用的漏洞细节。处理方式见 `SECURITY.md`。
