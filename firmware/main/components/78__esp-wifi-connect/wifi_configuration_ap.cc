@@ -151,6 +151,11 @@ void WifiConfigurationAp::StartAccessPoint()
     // Create the default WiFi AP interface
     ap_netif_ = esp_netif_create_default_wifi_ap();
 
+    // WifiStation is stopped before provisioning and releases its interface.
+    // APSTA mode also needs a station netif to run DHCP and emit GOT_IP when
+    // testing the submitted credentials. Provisioning owns both interfaces.
+    station_netif_ = esp_netif_create_default_wifi_sta();
+
     // Set the router IP address to 192.168.4.1
     esp_netif_ip_info_t ip_info;
     IP4_ADDR(&ip_info.ip, 192, 168, 4, 1);
@@ -772,6 +777,8 @@ void WifiConfigurationAp::WifiEventHandler(void* arg, esp_event_base_t event_bas
     } else if (event_id == WIFI_EVENT_STA_CONNECTED) {
         ESP_LOGI(TAG, "Associated with WiFi, waiting for IP address");
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        auto* event = static_cast<wifi_event_sta_disconnected_t*>(event_data);
+        ESP_LOGW(TAG, "WiFi disconnected during provisioning: reason=%u", event->reason);
         xEventGroupSetBits(self->event_group_, WIFI_FAIL_BIT);
     } else if (event_id == WIFI_EVENT_SCAN_DONE) {
         std::lock_guard<std::mutex> lock(self->mutex_);
@@ -903,6 +910,10 @@ void WifiConfigurationAp::Stop() {
     if (ap_netif_) {
         esp_netif_destroy_default_wifi(ap_netif_);
         ap_netif_ = nullptr;
+    }
+    if (station_netif_) {
+        esp_netif_destroy_default_wifi(station_netif_);
+        station_netif_ = nullptr;
     }
 
     ESP_LOGI(TAG, "Wifi configuration AP stopped");
