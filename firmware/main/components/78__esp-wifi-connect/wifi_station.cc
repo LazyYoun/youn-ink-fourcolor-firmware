@@ -684,6 +684,8 @@ void WifiStation::Stop() {
     force_scan_ = false;
     ip_fast_attempt_ = false;
     ip_fast_ready_ = false;
+    hidden_probe_active_ = false;
+    hidden_probe_queue_.clear();
 
     // Clear connected bit
     xEventGroupClearBits(event_group_, WIFI_EVENT_CONNECTED);
@@ -793,6 +795,13 @@ void WifiStation::Start() {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    // Modem sleep (the ESP-IDF station default) buffers/drops incoming
+    // packets between DTIM beacons, which shows up as slow TCP handshakes
+    // and a high HTTP failure rate. Boot with full radio power and let
+    // SetPowerSaveLevel() dial it back down if the user opts into LOW_POWER
+    // or BALANCED from Settings.
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+
     if (max_tx_power_ != 0) {
         ESP_ERROR_CHECK(esp_wifi_set_max_tx_power(max_tx_power_));
     }
@@ -821,8 +830,10 @@ bool WifiStation::WaitForConnected(int timeout_ms) {
 void WifiStation::HandleScanResult() {
     uint16_t ap_num = 0;
     esp_wifi_scan_get_ap_num(&ap_num);
-    wifi_ap_record_t *ap_records = (wifi_ap_record_t *)malloc(ap_num * sizeof(wifi_ap_record_t));
-    esp_wifi_scan_get_ap_records(&ap_num, ap_records);
+    wifi_ap_record_t *ap_records = ap_num > 0 ? (wifi_ap_record_t *)malloc(ap_num * sizeof(wifi_ap_record_t)) : nullptr;
+    if (ap_num > 0) {
+        esp_wifi_scan_get_ap_records(&ap_num, ap_records);
+    }
     // sort by rssi descending
     std::sort(ap_records, ap_records + ap_num, [](const wifi_ap_record_t& a, const wifi_ap_record_t& b) {
         return a.rssi > b.rssi;
@@ -837,7 +848,7 @@ void WifiStation::HandleScanResult() {
         });
         if (it != ssid_list.end() && wifi_credentials::Valid(it->ssid, it->password)) {
             ESP_LOGI(TAG, "Found AP: %s, BSSID: %02x:%02x:%02x:%02x:%02x:%02x, RSSI: %d, Channel: %d, Authmode: %d",
-                (char *)ap_record.ssid, 
+                (char *)ap_record.ssid,
                 ap_record.bssid[0], ap_record.bssid[1], ap_record.bssid[2],
                 ap_record.bssid[3], ap_record.bssid[4], ap_record.bssid[5],
                 ap_record.rssi, ap_record.primary, ap_record.authmode);
@@ -854,14 +865,53 @@ void WifiStation::HandleScanResult() {
     }
     free(ap_records);
 
-    if (connect_queue_.empty()) {
-        ESP_LOGI(TAG, "No AP found, next scan in %d seconds", scan_current_interval_microseconds_ / 1000 / 1000);
-        esp_timer_start_once(timer_handle_, scan_current_interval_microseconds_);
-        UpdateScanInterval();
+    if (!connect_queue_.empty()) {
+        hidden_probe_queue_.clear();
+        hidden_probe_active_ = false;
+        StartConnect();
         return;
     }
 
-    StartConnect();
+    // The wildcard scan above found none of our saved SSIDs. A hidden AP
+    // never answers that scan -- it only answers a probe request that names
+    // it directly -- so before giving up, walk every saved SSID with one
+    // directed scan each. If this callback *is* one of those directed
+    // probes and it still found nothing, StartNextHiddenProbe() advances the
+    // queue for us.
+    if (!hidden_probe_active_) {
+        hidden_probe_queue_.clear();
+        for (const auto& item : ssid_list) {
+            hidden_probe_queue_.push_back(item.ssid);
+        }
+    }
+    if (StartNextHiddenProbe()) {
+        return;
+    }
+
+    hidden_probe_active_ = false;
+    ESP_LOGI(TAG, "No AP found, next scan in %d seconds", scan_current_interval_microseconds_ / 1000 / 1000);
+    esp_timer_start_once(timer_handle_, scan_current_interval_microseconds_);
+    UpdateScanInterval();
+}
+
+bool WifiStation::StartNextHiddenProbe() {
+    if (hidden_probe_queue_.empty()) {
+        return false;
+    }
+    hidden_probe_current_ssid_ = hidden_probe_queue_.front();
+    hidden_probe_queue_.erase(hidden_probe_queue_.begin());
+    hidden_probe_active_ = true;
+
+    wifi_scan_config_t scan_config = {};
+    scan_config.ssid = reinterpret_cast<uint8_t*>(hidden_probe_current_ssid_.data());
+    scan_config.show_hidden = true;
+    ESP_LOGI(TAG, "Probing hidden SSID candidate: \"%s\"", hidden_probe_current_ssid_.c_str());
+    esp_err_t err = esp_wifi_scan_start(&scan_config, false);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Hidden SSID probe scan failed to start: %s", esp_err_to_name(err));
+        return StartNextHiddenProbe();
+    }
+    return true;
 }
 
 void WifiStation::StartConnect() {

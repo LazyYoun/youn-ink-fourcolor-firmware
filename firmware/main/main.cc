@@ -1,5 +1,6 @@
 #include <esp_log.h>
 #include <esp_err.h>
+#include <esp_ota_ops.h>
 #include <nvs.h>
 #include <nvs_flash.h>
 #include <driver/gpio.h>
@@ -35,6 +36,22 @@ static void LogNvsStats() {
 
 extern "C" void app_main(void)
 {
+    // Bootloader app-rollback is enabled (ota_0/ota_1), which boots each new
+    // image in the "pending verify" state and reverts to the previous slot
+    // after enough reboots unless something marks it valid. Nothing else in
+    // this firmware calls esp_ota_mark_app_valid_cancel_rollback(), so every
+    // OTA update was silently rolling back a few reboots after flashing.
+    {
+        esp_ota_img_states_t ota_state;
+        const esp_partition_t* running = esp_ota_get_running_partition();
+        if (running != nullptr &&
+            esp_ota_get_state_partition(running, &ota_state) == ESP_OK &&
+            ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+            esp_ota_mark_app_valid_cancel_rollback();
+            ESP_LOGI(TAG, "Marked running app valid, rollback cancelled");
+        }
+    }
+
     // Some soft/external reset paths leave the Wi-Fi RF state dirty until the
     // next hardware-equivalent reset. For those reset reasons only, perform a
     // brief deep-sleep round-trip once to come back with clean radio state.

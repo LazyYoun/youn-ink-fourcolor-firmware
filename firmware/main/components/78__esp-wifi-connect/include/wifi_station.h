@@ -101,7 +101,15 @@ private:
     std::vector<WifiApRecord> connect_queue_;
     bool was_connected_ = false;  // Track if we were connected before disconnection
 
+    // Hidden APs don't answer the wildcard scan below, only a probe request
+    // that names them directly. When a wildcard scan finds none of the saved
+    // SSIDs, we walk this queue and issue one directed scan per saved SSID.
+    std::vector<std::string> hidden_probe_queue_;
+    std::string hidden_probe_current_ssid_;
+    bool hidden_probe_active_ = false;
+
     void HandleScanResult();
+    bool StartNextHiddenProbe();
     void StartConnect();
     void UpdateScanInterval();  // Exponential backoff for scan interval
     void HandleFastFallback(const char* reason, int reason_id);
