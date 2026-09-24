@@ -44,8 +44,8 @@ private:
     Calendar::LunarDate lunar_{};
     const char* lunar_year_name_ = "";
     const char* solar_term_ = nullptr;
-    const char** yi_ = nullptr;
-    const char** ji_ = nullptr;
+    int yi_idx_ = 0;
+    int ji_idx_ = 0;
 };
 
 }  // namespace rawdraw

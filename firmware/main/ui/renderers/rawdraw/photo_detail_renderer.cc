@@ -5,6 +5,7 @@
 
 #include "photo_detail_renderer.h"
 
+#include "i18n.h"
 #include "rawdraw/components/modal.h"
 #include "rawdraw/rawdraw.h"
 #include "rawdraw/style.h"
@@ -101,8 +102,8 @@ void PhotoDetailRenderer::Render(uint8_t* fb, int width, int height) {
 
     if (photos_.empty() || !current_photo_data_ || current_photo_size_ == 0) {
         Modal modal;
-        modal.SetTitle("暂无照片");
-        modal.SetBodyFooter("等待推送");
+        modal.SetTitle(i18n::Tr(i18n::StringId::kNoPhotos));
+        modal.SetBodyFooter(i18n::Tr(i18n::StringId::kWaitingForUpload));
         modal.CenterInScreen(width, height, 52);
         modal.Draw(fb, width, height);
     } else {
@@ -246,8 +247,8 @@ void PhotoDetailRenderer::DrawMetadataModal(uint8_t* fb, int width, int height) 
     const Color text = theme.ColorFor(ThemeToken::TextPrimary);
     const Color secondary = theme.ColorFor(ThemeToken::TextSecondary);
     Modal modal;
-    modal.SetTitle("照片信息");
-    modal.SetBodyFooter("BOOT关闭");
+    modal.SetTitle(i18n::Tr(i18n::StringId::kPhotoInfo));
+    modal.SetBodyFooter(i18n::Tr(i18n::StringId::kBootClose));
     modal.CenterInScreen(width, height, 40);
     modal.Draw(fb, width, height);
 

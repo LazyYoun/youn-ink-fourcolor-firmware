@@ -10,6 +10,7 @@
 #include <cstring>
 #include <cstdio>
 #include "esp_timer.h"
+#include "i18n.h"
 #include "style.h"
 
 namespace rawdraw {
@@ -27,7 +28,8 @@ void VoiceWakeupInit(VoiceWakeupState* state, const lv_font_t* font) {
 void VoiceWakeupStartRecording(VoiceWakeupState* state) {
     if (!state) return;
     state->state = VoiceState::RECORDING;
-    snprintf(state->overlay_text, sizeof(state->overlay_text), "\xe5\xbd\x95\xe9\x9f\xb3\xe4\xb8\xad...");  // "录音中..."
+    snprintf(state->overlay_text, sizeof(state->overlay_text), "%s",
+             i18n::Tr(i18n::StringId::kRecording));  // "录音中..."
     state->state_start_us = esp_timer_get_time();
     state->visible = true;
     refresh_mark_dirty(&state->refresh);
@@ -36,7 +38,8 @@ void VoiceWakeupStartRecording(VoiceWakeupState* state) {
 void VoiceWakeupWaiting(VoiceWakeupState* state) {
     if (!state) return;
     state->state = VoiceState::WAITING_RESPONSE;
-    snprintf(state->overlay_text, sizeof(state->overlay_text), "\xe5\xa4\x84\xe7\x90\x86\xe4\xb8\xad...");  // "处理中..."
+    snprintf(state->overlay_text, sizeof(state->overlay_text), "%s",
+             i18n::Tr(i18n::StringId::kProcessing));  // "处理中..."
     state->state_start_us = esp_timer_get_time();
     refresh_mark_dirty(&state->refresh);
 }
@@ -44,8 +47,8 @@ void VoiceWakeupWaiting(VoiceWakeupState* state) {
 void VoiceWakeupShowOffline(VoiceWakeupState* state) {
     if (!state) return;
     state->state = VoiceState::OFFLINE_MSG;
-    snprintf(state->overlay_text, sizeof(state->overlay_text),
-             "\xe7\xa6\xbb\xe7\xba\xbf\xe7\x8a\xb6\xe6\x80\x81\xe4\xb8\x8b\xe6\x97\xa0\xe6\xb3\x95\xe4\xbd\xbf\xe7\x94\xa8\xe8\xaf\xad\xe9\x9f\xb3");  // "离线状态下无法使用语音"
+    snprintf(state->overlay_text, sizeof(state->overlay_text), "%s",
+             i18n::Tr(i18n::StringId::kVoiceUnavailableWhileOffline));  // "离线状态下无法使用语音"
     state->state_start_us = esp_timer_get_time();
     state->visible = true;
     refresh_mark_dirty(&state->refresh);
@@ -54,7 +57,8 @@ void VoiceWakeupShowOffline(VoiceWakeupState* state) {
 void VoiceWakeupDone(VoiceWakeupState* state) {
     if (!state) return;
     state->state = VoiceState::DONE;
-    snprintf(state->overlay_text, sizeof(state->overlay_text), "\xe5\xae\x8c\xe6\x88\x90");  // "完成"
+    snprintf(state->overlay_text, sizeof(state->overlay_text), "%s",
+             i18n::Tr(i18n::StringId::kDone));  // "完成"
     state->state_start_us = esp_timer_get_time();
     refresh_mark_dirty(&state->refresh);
 }

@@ -8,6 +8,7 @@
  */
 
 #include "lifebar_renderer.h"
+#include "i18n.h"
 #include "rawdraw/rawdraw.h"
 #include "rawdraw/layout_utils.h"  // FIX: 使用 InkCenteredTextTopY 替代 line_height 居中
 #include "rawdraw/components/progress_bar.h"
@@ -32,13 +33,15 @@ static constexpr int BIRTH_MONTH = 1;
 static constexpr int BIRTH_DAY   = 1;
 static constexpr int EXPECTED_LIFESPAN_YEARS = 80;
 
-// Motivational quotes (rotated by index)
-static const char* kQuotes[] = {
-    "时间是最公平的，\n每人每天都只有24小时",
-    "余生很长，何必慌张；\n余生很短，何必平凡",
-    "把每一天当成\n生命中最后一天来过",
-    "种一棵树最好的时间\n是十年前，其次是现在",
-    "人生没有白走的路，\n每一步都算数",
+// Motivational quotes (rotated by index). Translation is looked up fresh at
+// render time (see RenderQuote) rather than cached here, so a language switch
+// takes effect immediately.
+static const i18n::StringId kQuotes[] = {
+    i18n::StringId::kQuote1,
+    i18n::StringId::kQuote2,
+    i18n::StringId::kQuote3,
+    i18n::StringId::kQuote4,
+    i18n::StringId::kQuote5,
 };
 static constexpr int kNumQuotes = sizeof(kQuotes) / sizeof(kQuotes[0]);
 
@@ -164,7 +167,7 @@ void LifeBarRenderer::Render(uint8_t* fb, int width, int height) {
 
     if (!visible_) {
         // Show hidden placeholder
-        const char* msg = "人生进度页已隐藏";
+        const char* msg = i18n::Tr(i18n::StringId::kLifeProgressPageIsHidden);
         int msg_w = MeasureTextWidth(msg, small_font_);
         int msg_x = (width - msg_w) / 2;
         msg_x = (msg_x + 7) & ~7;
@@ -173,7 +176,7 @@ void LifeBarRenderer::Render(uint8_t* fb, int width, int height) {
         int msg_y = InkCenteredTextTopY(small_font_, msg, height / 2, 0);
         DrawText(fb, width, msg_x, msg_y, msg, small_font_, text);
 
-        const char* hint = "在设置中重新开启";
+        const char* hint = i18n::Tr(i18n::StringId::kReEnableItInSettings);
         int hint_w = MeasureTextWidth(hint, small_font_);
         int hint_x = (width - hint_w) / 2;
         hint_x = (hint_x + 7) & ~7;
@@ -203,14 +206,14 @@ void LifeBarRenderer::RenderHeader(uint8_t* fb, int width, int y) const {
     const Color text = theme.ColorFor(ThemeToken::TextPrimary);
     const Color secondary = theme.ColorFor(ThemeToken::TextSecondary);
     // Title
-    const char* title = "人生进度";
+    const char* title = i18n::Tr(i18n::StringId::kLifeProgress);
     int title_w = MeasureTextWidth(title, title_font_);
     int title_x = (width - title_w) / 2;
     title_x = (title_x + 7) & ~7;
     DrawText(fb, width, title_x, y, title, title_font_, text);
 
     // Subtitle
-    const char* sub = "每一天都值得珍惜";
+    const char* sub = i18n::Tr(i18n::StringId::kEveryDayIsWorthCherishing);
     int sub_w = MeasureTextWidth(sub, small_font_);
     int sub_x = (width - sub_w) / 2;
     sub_x = (sub_x + 7) & ~7;
@@ -268,7 +271,7 @@ void LifeBarRenderer::RenderGauge(uint8_t* fb, int width, int y_start, int avail
 
     // Line 1: Age (consistent with gauge percentage)
     if (stats_y + small_font_->line_height <= bottom_limit) {
-        snprintf(buf, sizeof(buf), "%d岁%d月  已过%d%%", age_years_, age_months_, life_pct_);
+        snprintf(buf, sizeof(buf), i18n::Tr(i18n::StringId::kAgeDYDMDElapsed), age_years_, age_months_, life_pct_);
         int w = MeasureTextWidth(buf, small_font_);
         int x = (width - w) / 2;
         x = (x + 7) & ~7;
@@ -278,7 +281,7 @@ void LifeBarRenderer::RenderGauge(uint8_t* fb, int width, int y_start, int avail
 
     // Line 2: Days remaining
     if (stats_y + small_font_->line_height <= bottom_limit) {
-        snprintf(buf, sizeof(buf), "剩余天数 %d天", days_remaining_);
+        snprintf(buf, sizeof(buf), i18n::Tr(i18n::StringId::kDaysLeftD), days_remaining_);
         int w = MeasureTextWidth(buf, small_font_);
         int x = (width - w) / 2;
         x = (x + 7) & ~7;
@@ -288,7 +291,7 @@ void LifeBarRenderer::RenderGauge(uint8_t* fb, int width, int y_start, int avail
 
     // Line 3: Weekends remaining
     if (stats_y + small_font_->line_height <= bottom_limit) {
-        snprintf(buf, sizeof(buf), "剩余周末 %d个", weekends_remaining_);
+        snprintf(buf, sizeof(buf), i18n::Tr(i18n::StringId::kWeekendsLeftD), weekends_remaining_);
         int w = MeasureTextWidth(buf, small_font_);
         int x = (width - w) / 2;
         x = (x + 7) & ~7;
@@ -319,7 +322,7 @@ void LifeBarRenderer::RenderQuote(uint8_t* fb, int width, int y) const {
     struct tm tm_buf;
     localtime_r(&now, &tm_buf);
     int idx = (tm_buf.tm_yday) % kNumQuotes;
-    const char* quote = kQuotes[idx];
+    const char* quote = i18n::Tr(kQuotes[idx]);
 
     // Draw quote lines
     char line[64];

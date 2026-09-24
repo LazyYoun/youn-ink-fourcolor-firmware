@@ -27,6 +27,7 @@
 #include "rawdraw/theme.h"
 #include "rawdraw/components/progress_bar.h"
 #include "rawdraw/components/panel.h"
+#include "i18n.h"
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -132,7 +133,7 @@ void WifiRenderer::RenderConnecting(uint8_t* fb, int width, int height) {
     }
 
     // Status text
-    const char* status_text = "正在连接...";
+    const char* status_text = i18n::Tr(i18n::StringId::kConnecting2);
     int text_w = MeasureTextWidth(status_text, font_);
     int text_x = (width - text_w) / 2;
     int text_y = Style::kStatusBarHeight + Style::kSpacingXL + icon_size + Style::kSpacingLG;
@@ -167,7 +168,7 @@ void WifiRenderer::RenderConnecting(uint8_t* fb, int width, int height) {
     }
 
     // Hint text
-    const char* hint = "请稍候...";
+    const char* hint = i18n::Tr(i18n::StringId::kPleaseWait);
     int hint_w = MeasureTextWidth(hint, font_);
     DrawText(fb, width, (width - hint_w) / 2,
              height - font_->line_height - Style::kSpacingSM, hint, font_, secondary_text);
@@ -239,7 +240,7 @@ void WifiRenderer::RenderConnected(uint8_t* fb, int width, int height) {
                    status_.server_connected, status_.server_uri);
 
     // === Bottom hint ===
-    const char* hint = "按 BOOT 返回";
+    const char* hint = i18n::Tr(i18n::StringId::kPressBootToReturn);
     int hint_w = MeasureTextWidth(hint, font_);
     DrawText(fb, width, (width - hint_w) / 2,
              height - font_->line_height - Style::kSpacingSM, hint, font_, secondary_text);
@@ -266,7 +267,7 @@ void WifiRenderer::DrawServerCard(uint8_t* fb, int width, int x, int y,
 
     // Title
     DrawText(fb, width, x + Style::kPanelPadding,
-             y + Style::kSpacingXS, "服务器", title_font_, text);
+             y + Style::kSpacingXS, i18n::Tr(i18n::StringId::kServer), title_font_, text);
 
     // Status icon + text
     const int icon_y = y + Style::kPanelTitleHeight + Style::kSpacingSM;
@@ -277,7 +278,7 @@ void WifiRenderer::DrawServerCard(uint8_t* fb, int width, int x, int y,
         DrawText(fb, width, x + Style::kPanelPadding, icon_y,
                  check, font_, status_color);
         DrawText(fb, width, x + Style::kPanelPadding + Style::kFontSizeSM + Style::kSpacingSM,
-                 icon_y, "已连接", font_, text);
+                 icon_y, i18n::Tr(i18n::StringId::kConnected), font_, text);
 
         // Server URI
         if (!uri.empty()) {
@@ -294,7 +295,7 @@ void WifiRenderer::DrawServerCard(uint8_t* fb, int width, int x, int y,
         DrawText(fb, width, x + Style::kPanelPadding, icon_y,
                  cross, font_, status_color);
         DrawText(fb, width, x + Style::kPanelPadding + Style::kFontSizeSM + Style::kSpacingSM,
-                 icon_y, "未连接", font_, text);
+                 icon_y, i18n::Tr(i18n::StringId::kNotConnected), font_, text);
     }
 }
 
@@ -320,7 +321,7 @@ void WifiRenderer::RenderDisconnected(uint8_t* fb, int width, int height) {
              large_icon_font_, danger);
 
     // Status text
-    const char* status_text = "网络已断开";
+    const char* status_text = i18n::Tr(i18n::StringId::kNetworkDisconnected);
     int text_w = MeasureTextWidth(status_text, title_font_);
     int text_x = (width - text_w) / 2;
     int text_y = center_y + cross_icon_size + Style::kSpacingLG;
@@ -336,7 +337,7 @@ void WifiRenderer::RenderDisconnected(uint8_t* fb, int width, int height) {
     const int actions_y = divider_y + Style::kSpacingSM;
 
     // Primary action
-    const char* primary = "按 BOOT 重新连接";
+    const char* primary = i18n::Tr(i18n::StringId::kPressBootToReconnect);
     int primary_w = MeasureTextWidth(primary, font_);
     int primary_x = (width - primary_w) / 2;
 
@@ -355,7 +356,7 @@ void WifiRenderer::RenderDisconnected(uint8_t* fb, int width, int height) {
              primary, font_, button_style.fg);
 
     // Secondary hint
-    const char* secondary_hint = "长按 BOOT 进入配网模式";
+    const char* secondary_hint = i18n::Tr(i18n::StringId::kHoldBootToEnterWifiSetup);
     int sec_w = MeasureTextWidth(secondary_hint, font_);
     int sec_x = (width - sec_w) / 2;
     int sec_y = btn_y + btn_h + Style::kSpacingSM;

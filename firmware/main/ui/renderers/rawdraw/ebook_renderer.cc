@@ -12,6 +12,7 @@
 #include "rawdraw/rawdraw.h"
 #include "rawdraw/style.h"
 #include "rawdraw/theme.h"
+#include "i18n.h"
 #include <algorithm>
 #include <cstdio>
 #include <esp_log.h>
@@ -66,11 +67,12 @@ void EbookRenderer::RenderFileList(uint8_t* fb, int width, int height) {
     DrawStyledRect(fb, width, {0, Style::kStatusBarHeight + 1, width, height_ - Style::kStatusBarHeight - 1}, bg_style);
 
     if (files_.empty()) {
-        const char* hint = "暂无TXT文件";
+        const char* hint = i18n::Tr(i18n::StringId::kNoTxtFiles);
         int hint_w = MeasureTextWidth(hint, font_);
         DrawText(fb, width, (width - hint_w) / 2, kListY + 80, hint, font_, text);
-        DrawText(fb, width, (width - MeasureTextWidth("推送TXT到设备", font_)) / 2,
-                 kListY + 110, "推送TXT到设备", font_, secondary);
+        const char* push_hint = i18n::Tr(i18n::StringId::kPushATxtFileToDevice);
+        DrawText(fb, width, (width - MeasureTextWidth(push_hint, font_)) / 2,
+                 kListY + 110, push_hint, font_, secondary);
     } else {
         // Draw file list
         int visible_start = std::max(0, selected_index_ - 5);
@@ -95,15 +97,17 @@ void EbookRenderer::RenderFileList(uint8_t* fb, int width, int height) {
     }
 
     // Footer hints
+    const char* select_hint = i18n::Tr(i18n::StringId::kBootSelect);
     DrawStyledRoundRect(fb, width, height, {14, kFooterY, 110, kFooterH}, Style::kBorderRadiusSM, footer_style);
     DrawText(fb, width, 34,
-             InkCenteredTextTopY(font_, "BOOT 选择", kFooterY + kFooterH / 2, 0),
-             "BOOT 选择", font_, footer_style.fg);
+             InkCenteredTextTopY(font_, select_hint, kFooterY + kFooterH / 2, 0),
+             select_hint, font_, footer_style.fg);
 
+    const char* back_hint = i18n::Tr(i18n::StringId::kDoubleClickBack);
     DrawStyledRoundRect(fb, width, height, {142, kFooterY, 130, kFooterH}, Style::kBorderRadiusSM, footer_style);
     DrawText(fb, width, 160,
-             InkCenteredTextTopY(font_, "双击返回", kFooterY + kFooterH / 2, 0),
-             "双击返回", font_, footer_style.fg);
+             InkCenteredTextTopY(font_, back_hint, kFooterY + kFooterH / 2, 0),
+             back_hint, font_, footer_style.fg);
 }
 
 void EbookRenderer::RenderReader(uint8_t* fb, int width, int height) {
@@ -131,14 +135,15 @@ void EbookRenderer::RenderReaderPage(uint8_t* fb, int width, int height, int con
     const Color secondary = theme.ColorFor(ThemeToken::TextSecondary);
 
     if (reader_content_.empty()) {
-        const char* empty_hint = "文件为空或读取失败";
+        const char* empty_hint = i18n::Tr(i18n::StringId::kFileIsEmptyOrFailedToRead);
         const int hint_w = MeasureTextWidth(empty_hint, font_);
         DrawText(fb, width, (width - hint_w) / 2,
                  InkCenteredTextTopY(font_, empty_hint, content_y + 42, 0),
                  empty_hint, font_, text, height);
+        const char* retry_hint = i18n::Tr(i18n::StringId::kPushTheTxtFileAgainAndReopen);
         DrawText(fb, width, 24,
-                 InkCenteredTextTopY(font_, "请重新推送 TXT 后再打开", content_y + 74, 0),
-                 "请重新推送 TXT 后再打开", font_, secondary, height);
+                 InkCenteredTextTopY(font_, retry_hint, content_y + 74, 0),
+                 retry_hint, font_, secondary, height);
     } else {
         const int chars_per_page = CharsPerPage();
         int start_char = current_page_ * chars_per_page;

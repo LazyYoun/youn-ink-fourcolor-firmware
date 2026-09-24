@@ -16,6 +16,7 @@
 
 #include "weather_card.h"
 #include "common/weather_api.h"
+#include "i18n.h"
 #include "rawdraw/rawdraw.h"
 #include "rawdraw/style.h"
 #include "rawdraw/theme.h"
@@ -138,15 +139,16 @@ bool WeatherCard::Draw(uint8_t* fb, int width, int height) {
 
     // Header tag
     const char* city = city_name_.empty() ? data_.city.c_str() : city_name_.c_str();
-    int city_tag_w = MeasureTextWidth(city && city[0] ? city : "天气", info_font_) + 18;
+    const char* city_fallback = i18n::Tr(i18n::StringId::kWeather);
+    int city_tag_w = MeasureTextWidth(city && city[0] ? city : city_fallback, info_font_) + 18;
     DrawStyledRoundRect(fb, width, height, {card_left, card_top, city_tag_w, 16},
                         Style::kBorderRadiusPill, badge_style);
-    DrawStyledText(fb, width, card_left + 9, card_top + 1, city && city[0] ? city : "天气",
+    DrawStyledText(fb, width, card_left + 9, card_top + 1, city && city[0] ? city : city_fallback,
                    info_font_, badge_style, height);
 
     if (!data_.update_time.empty()) {
         char update_buf[32];
-        snprintf(update_buf, sizeof(update_buf), "%s 更新", data_.update_time.c_str());
+        snprintf(update_buf, sizeof(update_buf), i18n::Tr(i18n::StringId::kUpdatedS), data_.update_time.c_str());
         int update_w = MeasureTextWidth(update_buf, info_font_);
         DrawText(fb, width, card_right - update_w, card_top + 1, update_buf, info_font_, secondary, height);
     }
@@ -170,7 +172,7 @@ bool WeatherCard::Draw(uint8_t* fb, int width, int height) {
     }
     if (!data_.feels_like.empty()) {
         char feels_buf[32];
-        snprintf(feels_buf, sizeof(feels_buf), "体感 %s°C", data_.feels_like.c_str());
+        snprintf(feels_buf, sizeof(feels_buf), i18n::Tr(i18n::StringId::kFeelsLikeSC), data_.feels_like.c_str());
         DrawText(fb, width, col2_x + 60, desc_y, feels_buf, info_font_, secondary, height);
     }
 
@@ -187,7 +189,7 @@ bool WeatherCard::Draw(uint8_t* fb, int width, int height) {
     if (!data_.wind_dir.empty()) {
         char wind_buf[64];
         if (!data_.wind_scale.empty()) {
-            snprintf(wind_buf, sizeof(wind_buf), "%s %s级",
+            snprintf(wind_buf, sizeof(wind_buf), i18n::Tr(i18n::StringId::kSLevelS),
                      data_.wind_dir.c_str(), data_.wind_scale.c_str());
         } else {
             snprintf(wind_buf, sizeof(wind_buf), "%s", data_.wind_dir.c_str());
@@ -196,7 +198,7 @@ bool WeatherCard::Draw(uint8_t* fb, int width, int height) {
     }
     if (!data_.humidity.empty()) {
         char hum_buf[32];
-        snprintf(hum_buf, sizeof(hum_buf), "湿度 %s%%", data_.humidity.c_str());
+        snprintf(hum_buf, sizeof(hum_buf), i18n::Tr(i18n::StringId::kHumidityS), data_.humidity.c_str());
         draw_chip(chip_x, hum_buf);
     }
 
@@ -208,7 +210,7 @@ bool WeatherCard::Draw(uint8_t* fb, int width, int height) {
     }
     if (!data_.feels_like.empty()) {
         char footer_buf[32];
-        snprintf(footer_buf, sizeof(footer_buf), "当前 %s°C", data_.temp.c_str());
+        snprintf(footer_buf, sizeof(footer_buf), i18n::Tr(i18n::StringId::kCurrentSC), data_.temp.c_str());
         int footer_w = MeasureTextWidth(footer_buf, info_font_);
         DrawText(fb, width, card_right - footer_w, strip_y, footer_buf, info_font_, secondary, height);
     }

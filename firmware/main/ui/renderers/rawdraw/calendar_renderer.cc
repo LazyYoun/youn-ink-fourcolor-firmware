@@ -9,6 +9,7 @@
 #include "calendar_renderer.h"
 #include "rawdraw/rawdraw.h"
 #include "rawdraw/style.h"
+#include "i18n.h"
 #include <algorithm>
 #include <cstdio>
 #include <ctime>
@@ -175,14 +176,14 @@ std::string CalendarRenderer::GetVoiceQueryContext() const {
     char buf[128];
     if (ld.lunar_year > 0) {
         const char* year_name = rawdraw::Calendar::GetLunarYearName(selected_date_.year);
-        const char* leap_prefix = ld.is_leap_month ? "闰" : "";
-        snprintf(buf, sizeof(buf), "%d年%d月%d日 %s年%s%s%s",
+        const char* leap_prefix = ld.is_leap_month ? i18n::Tr(i18n::StringId::kLeap) : "";
+        snprintf(buf, sizeof(buf), i18n::Tr(i18n::StringId::kDDDSYearSSS),
                  selected_date_.year, selected_date_.month, selected_date_.day,
                  year_name, leap_prefix,
                  rawdraw::Calendar::GetLunarMonthName(ld.lunar_month),
                  rawdraw::Calendar::GetLunarDayName(ld.lunar_day));
     } else {
-        snprintf(buf, sizeof(buf), "%d年%d月%d日",
+        snprintf(buf, sizeof(buf), i18n::Tr(i18n::StringId::kCalendarFullDate),
                  selected_date_.year, selected_date_.month, selected_date_.day);
     }
     return std::string(buf);

@@ -13,6 +13,7 @@
  */
 
 #include "holiday_fetcher.h"
+#include "i18n.h"
 #include <esp_log.h>
 #include <esp_http_client.h>
 #include <nvs_flash.h>
@@ -335,7 +336,9 @@ const char* GetHolidayName(int year, int month, int day) {
 const char* GetMakeupLabel(int year, int month, int day) {
     const HolidayEntry* e = FindEntry(year, month, day);
     if (e && !e->is_rest) {
-        return "班";
+        // Looked up fresh on every call (not cached) so it reflects the
+        // active language rather than freezing at first call.
+        return i18n::Tr(i18n::StringId::kWork);
     }
     return nullptr;
 }

@@ -4,6 +4,7 @@
  */
 
 #include "ap_transfer_renderer.h"
+#include "i18n.h"
 #include "rawdraw/rawdraw.h"
 #include "rawdraw/layout_utils.h"
 #include "rawdraw/style.h"
@@ -77,7 +78,7 @@ void ApTransferRenderer::Render(uint8_t* fb, int width, int height) {
     DrawHLine(fb, width, titlebar_h, 1, width - 2, border);
 
     // Title
-    const char* title = title_text_.empty() ? "WiFi 传图" : title_text_.c_str();
+    const char* title = title_text_.empty() ? i18n::Tr(i18n::StringId::kWifiTransfer) : title_text_.c_str();
     const int title_w = MeasureTextWidth(title, title_font_);
     DrawText(fb, width, (width - title_w) / 2,
              InkCenteredTextTopYInBox(title_font_, title, 1, titlebar_h, 0),
@@ -132,17 +133,17 @@ void ApTransferRenderer::RenderInstructions(uint8_t* fb, int width, int height) 
     const std::string state_hint = !hint_text_.empty()
         ? hint_text_
         : (status_message_.empty() || LooksLikeIpv4(status_message_)
-        ? "启动中，可先连接热点"
+        ? i18n::Tr(i18n::StringId::kStartingYouCanConnectToTheHotspotFirst)
         : status_message_);
-    const std::string ssid_line = "连接 " + (ssid_text_.empty() ? std::string("InkScreen-AP") : ssid_text_);
+    const std::string ssid_line = std::string(i18n::Tr(i18n::StringId::kConnect)) + (ssid_text_.empty() ? std::string("InkScreen-AP") : ssid_text_);
     const std::string pwd_line = password_text_.empty()
-        ? std::string("密码: 无")
-        : ("密码: " + password_text_);
+        ? std::string(i18n::Tr(i18n::StringId::kPasswordNone))
+        : (std::string(i18n::Tr(i18n::StringId::kPassword)) + password_text_);
     const char* lines[] = {
         ssid_line.c_str(),
         pwd_line.c_str(),
         "",
-        "浏览器访问",
+        i18n::Tr(i18n::StringId::kOpenInBrowser),
         url.c_str(),
         state_hint.c_str(),
     };
@@ -163,7 +164,7 @@ void ApTransferRenderer::RenderInstructions(uint8_t* fb, int width, int height) 
     // Bottom hint
     const int bottom_y = height - 30;
     DrawHLine(fb, width, bottom_y - 10, 20, width - 20, border);
-    const char* exit_hint = exit_hint_text_.empty() ? "长按 BOOT 退出" : exit_hint_text_.c_str();
+    const char* exit_hint = exit_hint_text_.empty() ? i18n::Tr(i18n::StringId::kHoldBootToExit) : exit_hint_text_.c_str();
     DrawText(fb, width, 20,
              InkCenteredTextTopYInBox(font_, exit_hint, bottom_y, 24, 0),
              exit_hint, font_, secondary);
@@ -183,19 +184,19 @@ void ApTransferRenderer::RenderStatus(uint8_t* fb, int width, int height) {
 
     switch (state_) {
         case kClientConnected:
-            status_text = "设备已连接";
+            status_text = i18n::Tr(i18n::StringId::kDeviceConnected);
             break;
         case kUploading:
-            status_text = "上传中...";
+            status_text = i18n::Tr(i18n::StringId::kUploading);
             break;
         case kProcessing:
-            status_text = "处理图片...";
+            status_text = i18n::Tr(i18n::StringId::kProcessingImage);
             break;
         case kComplete:
-            status_text = "传输完成!";
+            status_text = i18n::Tr(i18n::StringId::kTransferComplete);
             break;
         case kError:
-            status_text = "传输失败";
+            status_text = i18n::Tr(i18n::StringId::kTransferFailed);
             break;
         default:
             break;
@@ -239,7 +240,7 @@ void ApTransferRenderer::RenderStatus(uint8_t* fb, int width, int height) {
     // Bottom hint
     const int bottom_y = height - 30;
     DrawHLine(fb, width, bottom_y - 10, 20, width - 20, border);
-    const char* exit_hint = exit_hint_text_.empty() ? "长按 BOOT 退出" : exit_hint_text_.c_str();
+    const char* exit_hint = exit_hint_text_.empty() ? i18n::Tr(i18n::StringId::kHoldBootToExit) : exit_hint_text_.c_str();
     DrawText(fb, width, 20,
              InkCenteredTextTopYInBox(font_, exit_hint, bottom_y, 24, 0),
              exit_hint, font_, secondary);
@@ -265,12 +266,12 @@ void ApTransferRenderer::SetState(TransferState state, const std::string& messag
 }
 
 void ApTransferRenderer::UseDefaultTransferInstructions() {
-    SetInstructionContent("WiFi 传图",
+    SetInstructionContent(i18n::Tr(i18n::StringId::kWifiTransfer),
                           "InkScreen-AP",
                           "12345678",
                           "http://192.168.4.1",
                           "",
-                          "长按 BOOT 退出");
+                          i18n::Tr(i18n::StringId::kHoldBootToExit));
 }
 
 void ApTransferRenderer::SetInstructionContent(const std::string& title,

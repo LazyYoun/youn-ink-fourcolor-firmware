@@ -5,6 +5,8 @@
 
 #include "weather_detail_renderer.h"
 
+#include "i18n.h"
+
 #include "rawdraw/components/footer_bar.h"
 #include "rawdraw/components/modal.h"
 #include "rawdraw/layout_utils.h"
@@ -63,8 +65,8 @@ void WeatherDetailRenderer::Render(uint8_t* fb, int width, int height) {
 
     if (!has_data_) {
         Modal modal;
-        modal.SetTitle("暂无天气详情");
-        modal.SetBodyFooter("等待天气数据");
+        modal.SetTitle(i18n::Tr(i18n::StringId::kNoWeatherDetails));
+        modal.SetBodyFooter(i18n::Tr(i18n::StringId::kWaitingForWeatherData));
         modal.CenterInScreen(width, height, 52);
         modal.Draw(fb, width, height);
     } else {
@@ -82,7 +84,8 @@ void WeatherDetailRenderer::Render(uint8_t* fb, int width, int height) {
 
         Rect metrics{238, content_top + 16, 130, 108};
         DrawStyledRoundRect(fb, width, height, metrics, Style::kBorderRadiusMD, card_style);
-        const char* labels[] = {"体感温度", "湿度", "能见度", "气压"};
+        const char* labels[] = {i18n::Tr(i18n::StringId::kFeelsLike), i18n::Tr(i18n::StringId::kHumidity),
+                                 i18n::Tr(i18n::StringId::kVisibility), i18n::Tr(i18n::StringId::kPressure)};
         std::string values[] = {
             (data_.feels_like.empty() ? (data_.temp.empty() ? "--" : data_.temp) : data_.feels_like) + "°C",
             (data_.humidity.empty() ? "--" : data_.humidity) + "%",
@@ -209,8 +212,8 @@ void WeatherDetailRenderer::DrawHourDetailModal(uint8_t* fb, int width, int heig
     const Color secondary = theme.ColorFor(ThemeToken::TextSecondary);
     const Color accent = theme.ColorFor(ThemeToken::Accent);
     Modal modal;
-    modal.SetTitle("小时详情");
-    modal.SetBodyFooter("BOOT关闭");
+    modal.SetTitle(i18n::Tr(i18n::StringId::kHourlyDetail));
+    modal.SetBodyFooter(i18n::Tr(i18n::StringId::kBootToClose));
     modal.CenterInScreen(width, height, 42);
     modal.Draw(fb, width, height);
 
@@ -225,7 +228,8 @@ void WeatherDetailRenderer::DrawHourDetailModal(uint8_t* fb, int width, int heig
 void WeatherDetailRenderer::BuildFallbackTimeline() {
     hourly_.clear();
     const int now_temp = data_.temp.empty() ? data_.temp_int : atoi(data_.temp.c_str());
-    static const char* labels[] = {"现在", "3时", "6时", "9时", "12时", "15时"};
+    const char* labels[] = {i18n::Tr(i18n::StringId::kNow),   i18n::Tr(i18n::StringId::k3h),  i18n::Tr(i18n::StringId::k6h),
+                             i18n::Tr(i18n::StringId::k9h),    i18n::Tr(i18n::StringId::k12h), i18n::Tr(i18n::StringId::k15h)};
     static const int offsets[] = {0, -1, -2, 0, 2, 1};
     for (int i = 0; i < 6; ++i) {
         hourly_.push_back({labels[i], data_.weather_icon, data_.weather_text, now_temp + offsets[i]});

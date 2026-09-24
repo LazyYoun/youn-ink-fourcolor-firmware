@@ -16,6 +16,7 @@
 #include "components/78__xiaozhi-fonts/include/fa_settings.h"  // for icon macros
 #include "lvgl.h"
 #include "settings.h"
+#include "i18n.h"
 
 #include <esp_log.h>
 #include <esp_timer.h>
@@ -195,25 +196,27 @@ void DrawMiniTimeText(uint8_t* fb, int width, int x, int y, const char* text, ra
 // ============================================================
 
 const char* RawDrawUiManager::GetPageTitle(RawDrawPageId page) {
+    using i18n::Tr;
+    using i18n::StringId;
     switch (page) {
-        case RawDrawPageId::Chat:     return "对话";
-        case RawDrawPageId::Ebook:    return "电子书";
-        case RawDrawPageId::Wifi:     return "WiFi状态";
-        case RawDrawPageId::Settings: return "设置";
-        case RawDrawPageId::Gallery:  return "相册";
-        case RawDrawPageId::Weather:  return "天气";
-        case RawDrawPageId::News:     return "热点";
-        case RawDrawPageId::WeatherDetail: return "天气详情";
-        case RawDrawPageId::PhotoDetail: return "照片详情";
-        case RawDrawPageId::LifeBar:  return "人生进度";
-        case RawDrawPageId::Almanac:  return "老黄历";
-        case RawDrawPageId::Log:      return "日志";
-        case RawDrawPageId::YearProgress: return "年度进度";
-        case RawDrawPageId::Calendar:   return "日历";
-        case RawDrawPageId::FontDebug:  return "对齐测试";
-        case RawDrawPageId::FontMetrics: return "字体指标";
-        case RawDrawPageId::APTransfer: return "传图模式";
-        default:               return "未知";
+        case RawDrawPageId::Chat:     return Tr(StringId::kChat);
+        case RawDrawPageId::Ebook:    return Tr(StringId::kEbook);
+        case RawDrawPageId::Wifi:     return Tr(StringId::kWifiStatus);
+        case RawDrawPageId::Settings: return Tr(StringId::kSettings);
+        case RawDrawPageId::Gallery:  return Tr(StringId::kGallery);
+        case RawDrawPageId::Weather:  return Tr(StringId::kWeather);
+        case RawDrawPageId::News:     return Tr(StringId::kNews);
+        case RawDrawPageId::WeatherDetail: return Tr(StringId::kWeatherDetail);
+        case RawDrawPageId::PhotoDetail: return Tr(StringId::kPhotoDetail);
+        case RawDrawPageId::LifeBar:  return Tr(StringId::kLifeProgress);
+        case RawDrawPageId::Almanac:  return Tr(StringId::kAlmanac);
+        case RawDrawPageId::Log:      return Tr(StringId::kLog);
+        case RawDrawPageId::YearProgress: return Tr(StringId::kYearProgress);
+        case RawDrawPageId::Calendar:   return Tr(StringId::kCalendar);
+        case RawDrawPageId::FontDebug:  return Tr(StringId::kAlignmentTest);
+        case RawDrawPageId::FontMetrics: return Tr(StringId::kFontMetrics);
+        case RawDrawPageId::APTransfer: return Tr(StringId::kTransferMode);
+        default:               return Tr(StringId::kUnknown);
     }
 }
 
@@ -306,7 +309,7 @@ RawDrawUiManager::RawDrawUiManager()
     ap_transfer_server_->SetSettingsChangedCallback([this](int slideshow_interval_minutes) {
         SetGallerySlideshowIntervalMinutes(slideshow_interval_minutes);
         UpdateSettingsItem(3, slideshow_interval_minutes <= 0
-            ? std::string("关闭")
+            ? std::string(i18n::Tr(i18n::StringId::kOff))
             : std::to_string(slideshow_interval_minutes) + "min");
         RequestActivePageRefresh();
     });
@@ -646,14 +649,14 @@ bool RawDrawUiManager::TryDisplayCurrentPhotoRaw4Color() {
 
 const std::array<RawDrawUiManager::QuickSwitchItem, 2>& RawDrawUiManager::GetQuickSwitchItems() {
     static const std::array<QuickSwitchItem, 2> kItems = {{
-        {RawDrawPageId::Gallery, "相册", FA_SETTINGS_IMAGE},
-        {RawDrawPageId::Settings, "设置", FA_SETTINGS_GEAR},
+        {RawDrawPageId::Gallery, FA_SETTINGS_IMAGE},
+        {RawDrawPageId::Settings, FA_SETTINGS_GEAR},
 #if 0
         // Hardware-only alignment pages are intentionally hidden from the
         // user-facing quick switch. Keep the renderer code for calibration,
         // but do not expose them in normal navigation.
-        {RawDrawPageId::FontDebug, "对齐测试", nullptr},
-        {RawDrawPageId::FontMetrics, "字体指标", nullptr},
+        {RawDrawPageId::FontDebug, nullptr},
+        {RawDrawPageId::FontMetrics, nullptr},
 #endif
     }};
     return kItems;
@@ -680,12 +683,12 @@ void RawDrawUiManager::ShowWifiConfigPage(const std::string& ssid,
                                           const std::string& password,
                                           const std::string& url) {
     if (ap_transfer_renderer_) {
-        ap_transfer_renderer_->SetInstructionContent("WiFi 配网",
+        ap_transfer_renderer_->SetInstructionContent(i18n::Tr(i18n::StringId::kWifiSetup),
                                                      ssid.empty() ? "ZecTrix" : ssid,
                                                      password,
                                                      url.empty() ? "http://192.168.4.1" : url,
-                                                     "连接热点后打开页面配置 WiFi",
-                                                     "长按 BOOT 退出");
+                                                     i18n::Tr(i18n::StringId::kConnectToTheHotspotThenOpenThePageToConfigureWifi),
+                                                     i18n::Tr(i18n::StringId::kHoldBootToExit));
         ap_transfer_renderer_->SetState(rawdraw::ApTransferRenderer::kWaitingForConnection,
                                         "192.168.4.1");
     }
@@ -884,7 +887,7 @@ void RawDrawUiManager::RenderAll(uint8_t* fb, int width, int height) {
     }
     if (current_page_ == RawDrawPageId::Calendar && calendar_renderer_) {
         char buf[32];
-        snprintf(buf, sizeof(buf), "%d年%d月 ← →",
+        snprintf(buf, sizeof(buf), i18n::Tr(i18n::StringId::kCalendarNavTitle),
                  calendar_renderer_->GetYear(), calendar_renderer_->GetMonth());
         status_bar_data_.central_text = buf;
     }
@@ -991,7 +994,8 @@ void RawDrawUiManager::DrawStatusBar(uint8_t* fb, int width, int height) {
             } else {
                 int y = 0, m = 0, d = 0;
                 sscanf(status_bar_data_.server_date.c_str(), "%d-%d-%d", &y, &m, &d);
-                date_str = std::to_string(m) + "月" + std::to_string(d) + "日";
+                date_str = std::to_string(m) + i18n::Tr(i18n::StringId::kDateShortMonthSep) +
+                    std::to_string(d) + i18n::Tr(i18n::StringId::kDateShortDaySep);
             }
             if (!status_bar_data_.server_weekday.empty()) {
                 date_str += " " + status_bar_data_.server_weekday;
@@ -1150,7 +1154,7 @@ void RawDrawUiManager::DrawQuickSwitchOverlay(uint8_t* fb, int width, int height
                                  Style::kBorderRadiusMD, shadow_style);
     rawdraw::DrawStyledRoundRect(fb, width, height, {overlay_x, overlay_y, overlay_w, overlay_h},
                                  Style::kBorderRadiusMD, modal_style);
-    const char* title = "快速切换";
+    const char* title = i18n::Tr(i18n::StringId::kQuickSwitch);
     const int title_w = rawdraw::MeasureTextWidth(title, title_font);
     rawdraw::DrawStyledText(fb, width, overlay_x + (overlay_w - title_w) / 2,
                             rawdraw::InkCenteredTextTopYInBox(title_font, title, overlay_y, titlebar_h, 0),
@@ -1185,23 +1189,24 @@ void RawDrawUiManager::DrawQuickSwitchOverlay(uint8_t* fb, int width, int height
         const int icon_gap = 6;
         const int text_start_x = row_x + 18;
         const rawdraw::Color text_color = row_style.fg;
-        
+        const char* label = GetPageTitle(items[i].page);
+
         if (items[i].icon && items[i].icon[0] != '\0') {
             // Draw icon first
             const int icon_x = text_start_x;
             const int icon_y = rawdraw::InkCenteredTextTopYInBox(icon_font, items[i].icon, y, item_h, 0);
             rawdraw::DrawText(fb, width, icon_x, icon_y, items[i].icon, icon_font, text_color, height);
-            
+
             // Draw label after icon with gap
             const int icon_w = rawdraw::MeasureTextWidth(items[i].icon, icon_font);
             const int label_x = icon_x + icon_w + icon_gap;
-            const int label_y = rawdraw::InkCenteredTextTopYInBox(font, items[i].label, y, item_h, 0);
-            rawdraw::DrawText(fb, width, label_x, label_y, items[i].label, font, text_color, height);
+            const int label_y = rawdraw::InkCenteredTextTopYInBox(font, label, y, item_h, 0);
+            rawdraw::DrawText(fb, width, label_x, label_y, label, font, text_color, height);
         } else {
             // No icon, draw label directly
             rawdraw::DrawText(fb, width, text_start_x,
-                              rawdraw::InkCenteredTextTopYInBox(font, items[i].label, y, item_h, 0),
-                              items[i].label, font, text_color, height);
+                              rawdraw::InkCenteredTextTopYInBox(font, label, y, item_h, 0),
+                              label, font, text_color, height);
         }
         y += item_h + item_gap;
     }
@@ -1225,10 +1230,11 @@ void RawDrawUiManager::DrawQuickSwitchOverlay(uint8_t* fb, int width, int height
         rawdraw::DrawRect(fb, width, {sb_x, thumb_y, sb_w, thumb_h}, selected_style.border);
     }
 
+    const char* hint = i18n::Tr(i18n::StringId::kUpDnSelectBootEnter);
     rawdraw::DrawHLine(fb, width, overlay_y + overlay_h - 24, overlay_x + 14, overlay_x + overlay_w - 14, border_style.border);
     rawdraw::DrawStyledText(fb, width, overlay_x + 18,
-                            rawdraw::InkCenteredTextTopYInBox(font, "UP/DN 选择  BOOT 进入", overlay_y + overlay_h - 24, 24, 0),
-                            "UP/DN 选择  BOOT 进入", font, text_style, height);
+                            rawdraw::InkCenteredTextTopYInBox(font, hint, overlay_y + overlay_h - 24, 24, 0),
+                            hint, font, text_style, height);
 }
 
 rawdraw::Rect RawDrawUiManager::GetQuickSwitchBounds() const {

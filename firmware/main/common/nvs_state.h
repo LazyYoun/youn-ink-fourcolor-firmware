@@ -151,6 +151,20 @@ BleState LoadBleState();
 void SaveBleState(const BleState& state);
 
 // ============================================================
+// UI language
+// ============================================================
+
+/**
+ * @brief Load persisted on-device UI language (0 = zh-CN, 1 = en-US)
+ */
+int LoadUiLanguage();
+
+/**
+ * @brief Save on-device UI language (0 = zh-CN, 1 = en-US)
+ */
+void SaveUiLanguage(int language);
+
+// ============================================================
 // AP transfer boot mode
 // ============================================================
 

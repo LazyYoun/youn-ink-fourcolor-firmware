@@ -416,8 +416,11 @@ public:
 private:
     struct QuickSwitchItem {
         RawDrawPageId page;
-        const char* label;
         const char* icon;  // UTF-8 icon string (FontAwesome codepoint)
+        // Label is intentionally not stored here: it is looked up via
+        // GetPageTitle(page) at render time so a runtime language switch
+        // (see i18n.h) is reflected immediately instead of being frozen at
+        // the first call to GetQuickSwitchItems() (which is a static array).
     };
 
     // Display state

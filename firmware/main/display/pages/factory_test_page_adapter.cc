@@ -1,5 +1,6 @@
 #include "pages/factory_test_page_adapter.h"
 
+#include "i18n.h"
 #include "lcd_display.h"
 #include "lvgl_theme.h"
 
@@ -17,9 +18,21 @@ constexpr lv_coord_t kFooterHeight = 24;
 constexpr lv_coord_t kStepRowHeight = 24;
 constexpr int kStepCount = 7;
 
-const char* const kStepNames[kStepCount] = {
-    "RF", "音频", "RTC", "充电", "LED", "按键", "NFC"
-};
+// Looked up fresh on every call (not a static/const-init array) so the
+// label reflects the language active when the page is built rather than
+// freezing at first use.
+const char* StepName(int index) {
+    switch (index) {
+        case 0: return "RF";
+        case 1: return i18n::Tr(i18n::StringId::kAudio);
+        case 2: return "RTC";
+        case 3: return i18n::Tr(i18n::StringId::kCharging);
+        case 4: return "LED";
+        case 5: return i18n::Tr(i18n::StringId::kButton);
+        case 6: return "NFC";
+        default: return "";
+    }
+}
 
 const char* StateText(FactoryTestStepState state) {
     switch (state) {
@@ -156,7 +169,7 @@ void FactoryTestPageAdapter::Build() {
     if (body_font) {
         lv_obj_set_style_text_font(header_title, body_font, 0);
     }
-    lv_label_set_text(header_title, "FT测试");
+    lv_label_set_text(header_title, i18n::Tr(i18n::StringId::kFtTest));
     lv_obj_align(header_title, LV_ALIGN_LEFT_MID, 0, 0);
 
     header_step_label_ = lv_label_create(header);
@@ -195,7 +208,7 @@ void FactoryTestPageAdapter::Build() {
         if (body_font) {
             lv_obj_set_style_text_font(step_name_labels_[i], body_font, 0);
         }
-        lv_label_set_text(step_name_labels_[i], kStepNames[i]);
+        lv_label_set_text(step_name_labels_[i], StepName(i));
         lv_obj_align(step_name_labels_[i], LV_ALIGN_LEFT_MID, 0, 0);
 
         step_state_labels_[i] = lv_label_create(step_rows_[i]);

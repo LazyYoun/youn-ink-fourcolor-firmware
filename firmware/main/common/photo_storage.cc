@@ -8,6 +8,8 @@
 
 #include "photo_storage.h"
 
+#include "i18n.h"
+
 #include <esp_log.h>
 #include <esp_spiffs.h>
 #include <cJSON.h>
@@ -70,7 +72,7 @@ static void format_epoch_date(uint64_t epoch, char* out, size_t out_size) {
 static void apply_default_metadata(PhotoInfo* info) {
     if (!info) return;
     if (info->title[0] == '\0') {
-        strlcpy(info->title, "那年今日", sizeof(info->title));
+        strlcpy(info->title, i18n::Tr(i18n::StringId::kOnThisDay), sizeof(info->title));
     }
     if (info->date[0] == '\0' && info->timestamp > 0) {
         format_epoch_date(info->timestamp, info->date, sizeof(info->date));
@@ -78,10 +80,10 @@ static void apply_default_metadata(PhotoInfo* info) {
         format_epoch_date(strtoull(info->date, nullptr, 10), info->date, sizeof(info->date));
     }
     if (info->location[0] == '\0') {
-        strlcpy(info->location, "未知地点", sizeof(info->location));
+        strlcpy(info->location, i18n::Tr(i18n::StringId::kUnknownLocation), sizeof(info->location));
     }
     if (info->body[0] == '\0') {
-        strlcpy(info->body, "暂无文案", sizeof(info->body));
+        strlcpy(info->body, i18n::Tr(i18n::StringId::kNoCaptionYet), sizeof(info->body));
     }
 }
 

@@ -35,6 +35,7 @@ constexpr char kUiLifebar[] = "ui_lifebar";
 
 constexpr char kBleEnabled[] = "bt_enabled";
 constexpr char kApTransferBoot[] = "ap_xfer_boot";
+constexpr char kUiLanguage[] = "ui_lang";
 }  // namespace
 
 namespace nvs_state {
@@ -195,6 +196,17 @@ void SaveBleState(const BleState& state) {
     Settings nvs(kNamespace, true);
     nvs.SetBool(kBleEnabled, state.enabled);
     ESP_LOGI(kTag, "BLE state saved: enabled=%d", state.enabled);
+}
+
+int LoadUiLanguage() {
+    Settings nvs(kNamespace);
+    return static_cast<int>(nvs.GetInt(kUiLanguage, 0));
+}
+
+void SaveUiLanguage(int language) {
+    Settings nvs(kNamespace, true);
+    nvs.SetInt(kUiLanguage, language);
+    ESP_LOGI(kTag, "UI language saved: %d", language);
 }
 
 bool LoadApTransferBootMode() {

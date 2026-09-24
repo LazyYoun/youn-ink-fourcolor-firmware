@@ -7,6 +7,7 @@
 #include "rawdraw/layout_utils.h"
 #include "rawdraw/rawdraw.h"
 #include "rawdraw/style.h"
+#include "i18n.h"
 
 #include <cstdio>
 
@@ -78,23 +79,23 @@ void FontDebugRenderer::Render(uint8_t* fb, int width, int height) {
     const int w = Style::kScreenWidth - 20;
     int y = Style::kStatusBarHeight + 10;
 
-    const char* hint = "虚线=框中心 黑短线=真实字形上下界";
+    const char* hint = i18n::Tr(i18n::StringId::kDashedBoxCenterShortBlackTrueGlyphInkBounds);
     DrawText(fb, width, x, y, hint, font_, BLACK, height);
     y += 22;
 
     DrawDiagnosticRow(fb, width, height, x, y, w, 42,
-                      "line", "识别中...", font_, false);
+                      "line", i18n::Tr(i18n::StringId::kRecognizing), font_, false);
     y += 50;
     DrawDiagnosticRow(fb, width, height, x, y, w, 42,
-                      "ink", "识别中...", font_, true);
+                      "ink", i18n::Tr(i18n::StringId::kRecognizing), font_, true);
     y += 50;
     DrawDiagnosticRow(fb, width, height, x, y, w, 42,
-                      "line", "发送", font_, false);
+                      "line", i18n::Tr(i18n::StringId::kSend), font_, false);
     y += 50;
     DrawDiagnosticRow(fb, width, height, x, y, w, 48,
-                      "inkM", "Macintosh 关于", title_font_, true);
+                      "inkM", i18n::Tr(i18n::StringId::kMacintoshAbout), title_font_, true);
 
-    const TextInkBounds regular = MeasureTextInkBounds(font_, "识别中...");
+    const TextInkBounds regular = MeasureTextInkBounds(font_, i18n::Tr(i18n::StringId::kRecognizing));
     char footer[96];
     snprintf(footer, sizeof(footer), "Regular lh=%d bl=%d ink=%d..%d h=%d",
              static_cast<int>(font_->line_height),

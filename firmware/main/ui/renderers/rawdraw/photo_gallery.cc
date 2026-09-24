@@ -5,6 +5,7 @@
 
 #include "photo_gallery.h"
 #include "common/photo_storage.h"
+#include "i18n.h"
 #include "rawdraw/components/footer_bar.h"
 #include "rawdraw/layout_utils.h"
 #include "rawdraw/rawdraw.h"
@@ -340,10 +341,10 @@ void PhotoGalleryRenderer::RenderMemoryCardMode(uint8_t* fb, int width, int heig
     if (!photo_ids_.empty()) {
         const PhotoEntry& entry = photo_ids_[selected_index_];
         // Estimate required width from title + body + meta block
-        const std::string title_text = entry.title[0] ? entry.title : "那年今日";
-        const std::string body_text = entry.body[0] ? entry.body : "暂无文案";
-        const std::string date_text = entry.date[0] ? entry.date : "日期未知";
-        const std::string location_text = entry.location[0] ? entry.location : "地点未知";
+        const std::string title_text = entry.title[0] ? entry.title : i18n::Tr(i18n::StringId::kOnThisDay2);
+        const std::string body_text = entry.body[0] ? entry.body : i18n::Tr(i18n::StringId::kNoCaptionYet);
+        const std::string date_text = entry.date[0] ? entry.date : i18n::Tr(i18n::StringId::kUnknownDate);
+        const std::string location_text = entry.location[0] ? entry.location : i18n::Tr(i18n::StringId::kUnknownLocation2);
 
         int max_text_w = 0;
         // Title lines (2 max)
@@ -381,8 +382,8 @@ void PhotoGalleryRenderer::RenderMemoryCardMode(uint8_t* fb, int width, int heig
                         Style::kBorderRadiusMD, card_style);
 
     if (photo_ids_.empty()) {
-        const char* title = "暂无回忆";
-        const char* body = "通过 /api/push_memory 推送图片和文案";
+        const char* title = i18n::Tr(i18n::StringId::kNoMemoriesYet);
+        const char* body = i18n::Tr(i18n::StringId::kPushPhotosAndCaptionsViaApiPushMemory);
         const int safe_x = info_x + 12;
         const int safe_w = left_w - 24;
         const int title_box_y = card_y + 34;
@@ -401,7 +402,7 @@ void PhotoGalleryRenderer::RenderMemoryCardMode(uint8_t* fb, int width, int heig
         RenderPhotoInRect(fb, width, PhotoEntry{}, photo_x, card_y, photo_w, card_h, false);
         FooterBar footer;
         footer.SetBounds(width, height);
-        footer.SetText("UP上一张", nullptr, "BOOT看详情");
+        footer.SetText(i18n::Tr(i18n::StringId::kUpPrev), nullptr, i18n::Tr(i18n::StringId::kBootDetails));
         footer.Draw(fb, width, height);
         return;
     }
@@ -411,16 +412,16 @@ void PhotoGalleryRenderer::RenderMemoryCardMode(uint8_t* fb, int width, int heig
     const int text_x = info_x + 12;
     const int text_w = left_w - 24;
     int y = card_y + 20;
-    const char* chip_text = "往年今日";
+    const char* chip_text = i18n::Tr(i18n::StringId::kOnThisDay3);
     const int chip_text_w = MeasureTextWidth(chip_text, font_);
     Rect chip{text_x, y, std::min(text_w, chip_text_w + 24), 22};
     DrawStyledRoundRect(fb, width, height, chip, Style::kBorderRadiusSM, badge_style);
     DrawStyledText(fb, width, chip.x + (chip.w - chip_text_w) / 2,
-                   InkCenteredTextTopYInBox(font_, "往年今日", chip.y, chip.h, 0),
+                   InkCenteredTextTopYInBox(font_, chip_text, chip.y, chip.h, 0),
                    chip_text, font_, badge_style, height);
     y += 32;
 
-    auto title_lines = WrapText(entry.title[0] ? entry.title : "那年今日", title_font_, text_w, 2);
+    auto title_lines = WrapText(entry.title[0] ? entry.title : i18n::Tr(i18n::StringId::kOnThisDay2), title_font_, text_w, 2);
     constexpr int kTitleLineBoxH = 24;
     for (const auto& line : title_lines) {
         DrawText(fb, width, text_x, InkCenteredTextTopYInBox(title_font_, line.c_str(), y, kTitleLineBoxH, 0),
@@ -429,7 +430,7 @@ void PhotoGalleryRenderer::RenderMemoryCardMode(uint8_t* fb, int width, int heig
     }
     y += 4;
 
-    auto body_lines = WrapText(entry.body[0] ? entry.body : "暂无文案", font_, text_w, 5);
+    auto body_lines = WrapText(entry.body[0] ? entry.body : i18n::Tr(i18n::StringId::kNoCaptionYet), font_, text_w, 5);
     constexpr int kBodyLineBoxH = 22;
     for (const auto& line : body_lines) {
         DrawText(fb, width, text_x, InkCenteredTextTopYInBox(font_, line.c_str(), y, kBodyLineBoxH, 0),
@@ -441,8 +442,8 @@ void PhotoGalleryRenderer::RenderMemoryCardMode(uint8_t* fb, int width, int heig
     const int meta_y = card_y + card_h - meta_block_h - 12;
     DrawStyledRoundRect(fb, width, height, {text_x - 4, meta_y, text_w + 8, meta_block_h},
                         Style::kBorderRadiusSM, theme.Style(ThemeToken::BackgroundSecondary));
-    const std::string date_label = entry.date[0] ? entry.date : "日期未知";
-    const std::string location_label = entry.location[0] ? entry.location : "地点未知";
+    const std::string date_label = entry.date[0] ? entry.date : i18n::Tr(i18n::StringId::kUnknownDate);
+    const std::string location_label = entry.location[0] ? entry.location : i18n::Tr(i18n::StringId::kUnknownLocation2);
     const int date_center_y = meta_y + 14;
     const int location_center_y = meta_y + 30;
     DrawText(fb, width, text_x + 4,
@@ -462,7 +463,7 @@ void PhotoGalleryRenderer::RenderMemoryCardMode(uint8_t* fb, int width, int heig
     footer.SetBounds(width, height);
     char counter[40];
     snprintf(counter, sizeof(counter), "%d/%d", selected_index_ + 1, GetPhotoCount());
-    footer.SetText("UP/DN翻页", counter, "BOOT看详情");
+    footer.SetText(i18n::Tr(i18n::StringId::kUpDnPage2), counter, i18n::Tr(i18n::StringId::kBootDetails));
     footer.Draw(fb, width, height);
 }
 
@@ -474,7 +475,7 @@ void PhotoGalleryRenderer::RenderPhotoInRect(uint8_t* fb, int fb_width, const Ph
     DrawStyledRoundRect(fb, fb_width, 300, {x, y, w, h}, Style::kBorderRadiusSM, frame_style);
 
     if (entry.file_size == 0) {
-        const char* label = "无图片";
+        const char* label = i18n::Tr(i18n::StringId::kNoImage);
         int tw = MeasureTextWidth(label, font_);
         // FIX: 改用 InkCenteredTextTopYInBox，避免 line_height 居中导致中文偏上
         // 参见 wiki/projects/notellm-baseline-alignment.md
@@ -541,7 +542,7 @@ void PhotoGalleryRenderer::RenderFullscreenMode(uint8_t* fb, int width, int heig
     DrawStyledRect(fb, width, {0, 0, width, height}, theme.Style(ThemeToken::BackgroundPrimary));
 
     if (photo_ids_.empty() || !current_photo_data_ || current_photo_size_ == 0) {
-        const char* label = "无法加载照片";
+        const char* label = i18n::Tr(i18n::StringId::kFailedToLoadPhoto);
         int tw = MeasureTextWidth(label, font_);
         DrawText(fb, width, (width - tw) / 2, height / 2, label, font_,
                  theme.ColorFor(ThemeToken::TextPrimary));
@@ -600,7 +601,7 @@ void PhotoGalleryRenderer::RenderDeleteDialog(uint8_t* fb, int width, int height
     DrawLine(fb, width, {dialog_x + 10, dialog_y + 10}, {dialog_x + 18, dialog_y + 18}, danger);
     DrawLine(fb, width, {dialog_x + 18, dialog_y + 10}, {dialog_x + 10, dialog_y + 18}, danger);
 
-    const char* title = "删除照片";
+    const char* title = i18n::Tr(i18n::StringId::kDeletePhoto);
     const int title_w = MeasureTextWidth(title, font_);
     DrawText(fb, width, dialog_x + (dialog_w - title_w) / 2,
              InkCenteredTextTopYInBox(font_, title, dialog_y, titlebar_h, 0),
@@ -610,13 +611,13 @@ void PhotoGalleryRenderer::RenderDeleteDialog(uint8_t* fb, int width, int height
         DrawHLine(fb, width, yy, dialog_x + (dialog_w + title_w) / 2 + 8, dialog_x + dialog_w - 12, border);
     }
 
-    const char* body = "确认删除当前照片？";
+    const char* body = i18n::Tr(i18n::StringId::kDeleteThisPhoto);
     const int body_w = MeasureTextWidth(body, title_font_);
     DrawText(fb, width, dialog_x + (dialog_w - body_w) / 2,
              InkCenteredTextTopYInBox(title_font_, body, dialog_y + titlebar_h + 18, 28, 0),
              body, title_font_, text, height);
 
-    const char* labels[] = {"删除", "取消"};
+    const char* labels[] = {i18n::Tr(i18n::StringId::kDelete), i18n::Tr(i18n::StringId::kCancel)};
     const int button_y = dialog_y + 94;
     const int button_w = 92;
     const int button_h = 30;
@@ -635,7 +636,7 @@ void PhotoGalleryRenderer::RenderDeleteDialog(uint8_t* fb, int width, int height
                  labels[i], font_, style.fg, height);
     }
 
-    const char* hint = "UP/DN 切换  BOOT 确认";
+    const char* hint = i18n::Tr(i18n::StringId::kUpDnSwitchBootConfirm);
     const int hint_w = MeasureTextWidth(hint, font_);
     DrawText(fb, width, dialog_x + (dialog_w - hint_w) / 2,
              InkCenteredTextTopYInBox(font_, hint, dialog_y + dialog_h - 24, 20, 0),

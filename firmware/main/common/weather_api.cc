@@ -18,6 +18,8 @@
 
 #include "weather_api.h"
 
+#include "i18n.h"
+
 #include <esp_log.h>
 #include <esp_http_client.h>
 #include <esp_timer.h>
@@ -178,7 +180,13 @@ static bool ParseForecastJson(const char* json, WeatherData* out) {
     }
 
     out->forecast.clear();
-    const char* labels[3] = {"今天", "明天", "后天"};
+    // Looked up fresh each call (not static) so the label reflects the
+    // language active at fetch time rather than freezing at first call.
+    const char* labels[3] = {
+        i18n::Tr(i18n::StringId::kToday),
+        i18n::Tr(i18n::StringId::kTomorrow),
+        i18n::Tr(i18n::StringId::kDayAfter),
+    };
     int index = 0;
     cJSON* day = nullptr;
     cJSON_ArrayForEach(day, daily) {

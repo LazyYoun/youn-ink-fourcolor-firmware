@@ -9,6 +9,7 @@
 
 #include "calendar.h"
 #include "holiday_fetcher.h"
+#include "i18n.h"
 #include "rawdraw/layout_utils.h"
 #include "rawdraw/theme.h"
 #include <algorithm>
@@ -26,67 +27,92 @@ namespace rawdraw {
 struct SolarTermEntry {
     int month;
     int day;
-    const char* name;
+    i18n::StringId name_id;
 };
 
 // Approximate solar term dates (fixed-day approximation)
 // In reality these shift by ±1 day depending on the year
 static const SolarTermEntry kSolarTerms[] = {
-    { 1,  5, "小寒" }, { 1, 20, "大寒" },
-    { 2,  4, "立春" }, { 2, 19, "雨水" },
-    { 3,  5, "惊蛰" }, { 3, 20, "春分" },
-    { 4,  4, "清明" }, { 4, 20, "谷雨" },
-    { 5,  5, "立夏" }, { 5, 21, "小满" },
-    { 6,  5, "芒种" }, { 6, 21, "夏至" },
-    { 7,  7, "小暑" }, { 7, 23, "大暑" },
-    { 8,  7, "立秋" }, { 8, 23, "处暑" },
-    { 9,  7, "白露" }, { 9, 23, "秋分" },
-    {10,  8, "寒露" }, {10, 23, "霜降" },
-    {11,  7, "立冬" }, {11, 22, "小雪" },
-    {12,  7, "大雪" }, {12, 22, "冬至" },
+    { 1,  5, i18n::StringId::kSolarTermMinorCold }, { 1, 20, i18n::StringId::kSolarTermMajorCold },
+    { 2,  4, i18n::StringId::kSolarTermStartOfSpring }, { 2, 19, i18n::StringId::kSolarTermRainWater },
+    { 3,  5, i18n::StringId::kSolarTermAwakeningOfInsects }, { 3, 20, i18n::StringId::kSolarTermSpringEquinox },
+    { 4,  4, i18n::StringId::kSolarTermClearAndBrightQingming }, { 4, 20, i18n::StringId::kSolarTermGrainRain },
+    { 5,  5, i18n::StringId::kSolarTermStartOfSummer }, { 5, 21, i18n::StringId::kSolarTermGrainFull },
+    { 6,  5, i18n::StringId::kSolarTermGrainInEar }, { 6, 21, i18n::StringId::kSolarTermSummerSolstice },
+    { 7,  7, i18n::StringId::kSolarTermMinorHeat }, { 7, 23, i18n::StringId::kSolarTermMajorHeat },
+    { 8,  7, i18n::StringId::kSolarTermStartOfAutumn }, { 8, 23, i18n::StringId::kSolarTermEndOfHeat },
+    { 9,  7, i18n::StringId::kSolarTermWhiteDew }, { 9, 23, i18n::StringId::kSolarTermAutumnEquinox },
+    {10,  8, i18n::StringId::kSolarTermColdDew }, {10, 23, i18n::StringId::kSolarTermFrostSDescent },
+    {11,  7, i18n::StringId::kSolarTermStartOfWinter }, {11, 22, i18n::StringId::kSolarTermMinorSnow },
+    {12,  7, i18n::StringId::kSolarTermMajorSnow }, {12, 22, i18n::StringId::kSolarTermWinterSolstice },
 };
 
 static constexpr int kSolarTermCount = sizeof(kSolarTerms) / sizeof(kSolarTerms[0]);
 
 // Lunar month names (lunar calendar months 1-12)
-static const char* kLunarMonths[] = {
-    "正月", "二月", "三月", "四月", "五月", "六月",
-    "七月", "八月", "九月", "十月", "十一月", "腊月"
+static const i18n::StringId kLunarMonthIds[] = {
+    i18n::StringId::kLunarMonth1, i18n::StringId::kLunarMonth2, i18n::StringId::kLunarMonth3,
+    i18n::StringId::kLunarMonth4, i18n::StringId::kLunarMonth5, i18n::StringId::kLunarMonth6,
+    i18n::StringId::kLunarMonth7, i18n::StringId::kLunarMonth8, i18n::StringId::kLunarMonth9,
+    i18n::StringId::kLunarMonth10, i18n::StringId::kLunarMonth11, i18n::StringId::kLunarMonth12,
 };
 
 // Lunar day names
-static const char* kLunarDays[] = {
-    "初一", "初二", "初三", "初四", "初五", "初六", "初七", "初八", "初九", "初十",
-    "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十",
-    "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十"
+static const i18n::StringId kLunarDayIds[] = {
+    i18n::StringId::kLunarDay1, i18n::StringId::kLunarDay2, i18n::StringId::kLunarDay3, i18n::StringId::kLunarDay4,
+    i18n::StringId::kLunarDay5, i18n::StringId::kLunarDay6, i18n::StringId::kLunarDay7, i18n::StringId::kLunarDay8,
+    i18n::StringId::kLunarDay9, i18n::StringId::kLunarDay10, i18n::StringId::kLunarDay11, i18n::StringId::kLunarDay12,
+    i18n::StringId::kLunarDay13, i18n::StringId::kLunarDay14, i18n::StringId::kLunarDay15, i18n::StringId::kLunarDay16,
+    i18n::StringId::kLunarDay17, i18n::StringId::kLunarDay18, i18n::StringId::kLunarDay19, i18n::StringId::kLunarDay20,
+    i18n::StringId::kLunarDay21, i18n::StringId::kLunarDay22, i18n::StringId::kLunarDay23, i18n::StringId::kLunarDay24,
+    i18n::StringId::kLunarDay25, i18n::StringId::kLunarDay26, i18n::StringId::kLunarDay27, i18n::StringId::kLunarDay28,
+    i18n::StringId::kLunarDay29, i18n::StringId::kLunarDay30,
 };
 
 // Weekday header characters
-static const char* kWeekdayChars[] = {"日", "一", "二", "三", "四", "五", "六"};
-static const char* kWeekdayFull[] = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
+static const i18n::StringId kWeekdayShortIds[] = {
+    i18n::StringId::kWeekdayShortSun, i18n::StringId::kWeekdayShortMon, i18n::StringId::kWeekdayShortTue,
+    i18n::StringId::kWeekdayShortWed, i18n::StringId::kWeekdayShortThu, i18n::StringId::kWeekdayShortFri,
+    i18n::StringId::kWeekdayShortSat,
+};
+static const i18n::StringId kWeekdayFullIds[] = {
+    i18n::StringId::kWeekdayFullSun, i18n::StringId::kWeekdayFullMon, i18n::StringId::kWeekdayFullTue,
+    i18n::StringId::kWeekdayFullWed, i18n::StringId::kWeekdayFullThu, i18n::StringId::kWeekdayFullFri,
+    i18n::StringId::kWeekdayFullSat,
+};
+
+// Fetch the weekday label fresh each call so the returned string always
+// matches the currently active runtime language (never cache the result).
+static const char* WeekdayChar(int i) {
+    return i18n::Tr(kWeekdayShortIds[i]);
+}
+
+static const char* WeekdayFull(int i) {
+    return i18n::Tr(kWeekdayFullIds[i]);
+}
 
 // Holidays (fixed-date solar holidays in Gregorian calendar)
 struct HolidayEntry {
     int month;
     int day;
-    const char* name;
+    i18n::StringId name_id;
 };
 
 static const HolidayEntry kHolidays[] = {
-    { 1,  1, "元旦" },
-    { 2, 14, "情人节" },
-    { 3,  8, "妇女节" },
-    { 3, 12, "植树节" },
-    { 4,  1, "愚人节" },
-    { 5,  1, "劳动节" },
-    { 5,  4, "青年节" },
-    { 6,  1, "儿童节" },
-    { 7,  1, "建党节" },
-    { 8,  1, "建军节" },
-    { 9, 10, "教师节" },
-    {10,  1, "国庆节" },
-    {10, 31, "万圣节" },
-    {12, 25, "圣诞节" },
+    { 1,  1, i18n::StringId::kHolidayNewYearSDay },
+    { 2, 14, i18n::StringId::kHolidayValentineSDay },
+    { 3,  8, i18n::StringId::kHolidayWomenSDay },
+    { 3, 12, i18n::StringId::kHolidayArborDay },
+    { 4,  1, i18n::StringId::kHolidayAprilFoolsDay },
+    { 5,  1, i18n::StringId::kHolidayLaborDay },
+    { 5,  4, i18n::StringId::kHolidayYouthDay },
+    { 6,  1, i18n::StringId::kHolidayChildrenSDay },
+    { 7,  1, i18n::StringId::kHolidayPartyFoundingDay },
+    { 8,  1, i18n::StringId::kHolidayArmyDay },
+    { 9, 10, i18n::StringId::kHolidayTeachersDay },
+    {10,  1, i18n::StringId::kHolidayNationalDay },
+    {10, 31, i18n::StringId::kHolidayHalloween },
+    {12, 25, i18n::StringId::kHolidayChristmas },
 };
 
 static constexpr int kHolidayCount = sizeof(kHolidays) / sizeof(kHolidays[0]);
@@ -124,18 +150,18 @@ int Calendar::FirstDayOfMonth() const {
 
 const char* Calendar::GetLunarMonthName(int month) {
     if (month < 1 || month > 12) return "";
-    return kLunarMonths[month - 1];
+    return i18n::Tr(kLunarMonthIds[month - 1]);
 }
 
 const char* Calendar::GetLunarDayName(int day) {
     if (day < 1 || day > 30) return "";
-    return kLunarDays[day - 1];
+    return i18n::Tr(kLunarDayIds[day - 1]);
 }
 
 const char* Calendar::GetSolarTerm(int month, int day) {
     for (int i = 0; i < kSolarTermCount; i++) {
         if (kSolarTerms[i].month == month && kSolarTerms[i].day == day) {
-            return kSolarTerms[i].name;
+            return i18n::Tr(kSolarTerms[i].name_id);
         }
     }
     return nullptr;
@@ -168,8 +194,17 @@ static constexpr int kLunarMaxYear = 2050;
 static constexpr int kLunarYearCount = kLunarMaxYear - kLunarMinYear + 1;  // 51
 
 // Tian Gan (天干) and Di Zhi (地支) for year names
-static const char* kTianGan[] = {"甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"};
-static const char* kDiZhi[] = {"子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"};
+static const i18n::StringId kTianGanIds[] = {
+    i18n::StringId::kTianganJia, i18n::StringId::kTianganYi, i18n::StringId::kTianganBing,
+    i18n::StringId::kTianganDing, i18n::StringId::kTianganWu, i18n::StringId::kTianganJi,
+    i18n::StringId::kTianganGeng, i18n::StringId::kTianganXin, i18n::StringId::kTianganRen,
+    i18n::StringId::kTianganGui,
+};
+static const i18n::StringId kDiZhiIds[] = {
+    i18n::StringId::kDizhiZi, i18n::StringId::kDizhiChou, i18n::StringId::kDizhiYin, i18n::StringId::kDizhiMao,
+    i18n::StringId::kDizhiChen, i18n::StringId::kDizhiSi, i18n::StringId::kDizhiWu, i18n::StringId::kDizhiWei,
+    i18n::StringId::kDizhiShen, i18n::StringId::kDizhiYou, i18n::StringId::kDizhiXu, i18n::StringId::kDizhiHai,
+};
 
 // Leap month info for 2000-2050 (0 = no leap, 1-12 = which month has leap)
 // Derived from lunardate library validation
@@ -269,11 +304,12 @@ Calendar::LunarDate Calendar::ToLunarDate(int year, int month, int day) {
 }
 
 const char* Calendar::GetLunarYearName(int year) {
-    static char buf[8];
+    static char buf[24];
     if (year < 1900 || year > 2100) return "";
     int tg = (year - 4) % 10;
     int dz = (year - 4) % 12;
-    snprintf(buf, sizeof(buf), "%s%s", kTianGan[tg], kDiZhi[dz]);
+    snprintf(buf, sizeof(buf), "%s%s", i18n::Tr(kTianGanIds[tg]),
+             i18n::Tr(kDiZhiIds[dz]));
     return buf;
 }
 
@@ -584,7 +620,7 @@ void Calendar::DrawHeader(uint8_t* fb, int width) const {
 
     // Title: "2026年 4月" centered
     char title[32];
-    snprintf(title, sizeof(title), "%d年 %d月", year_, month_);
+    snprintf(title, sizeof(title), i18n::Tr(i18n::StringId::kCalendarTitleYearMonth), year_, month_);
     int title_w = MeasureTextWidth(title, title_font_);
     int title_x = x_ + (w_ - title_w) / 2;
     int title_text_y = y_ + (title_bar_h - title_font_->line_height) / 2;
@@ -616,7 +652,7 @@ void Calendar::DrawWeekdayRow(uint8_t* fb, int width, int y) const {
     DrawStyledRect(fb, width, {x_, y, w_, bg_h}, bg);
 
     for (int i = 0; i < kCols; i++) {
-        const char* ch = kWeekdayChars[i];
+        const char* ch = WeekdayChar(i);
         int ch_w = MeasureTextWidth(ch, body_font_);
         int cx = x_ + i * cell_w_;
         int text_x = cx + (cell_w_ - ch_w) / 2;
@@ -688,7 +724,7 @@ void Calendar::DrawGrid(uint8_t* fb, int width, int y) const {
             solar_term = GetSolarTerm(month_, display_day);
             for (int h = 0; h < kHolidayCount; h++) {
                 if (kHolidays[h].month == month_ && kHolidays[h].day == display_day) {
-                    holiday = kHolidays[h].name;
+                    holiday = i18n::Tr(kHolidays[h].name_id);
                     break;
                 }
             }
@@ -696,7 +732,7 @@ void Calendar::DrawGrid(uint8_t* fb, int width, int y) const {
             int q_year = year_, q_month = month_, q_day = display_day;
             if (holiday_fetcher::IsHoliday(q_year, q_month, q_day)) {
                 holiday = holiday_fetcher::GetHolidayName(q_year, q_month, q_day);
-                if (!holiday) holiday = "休";
+                if (!holiday) holiday = i18n::Tr(i18n::StringId::kOff3);
             } else if (holiday_fetcher::IsMakeupWorkday(q_year, q_month, q_day)) {
                 makeup_label = holiday_fetcher::GetMakeupLabel(q_year, q_month, q_day);
             }
@@ -780,18 +816,18 @@ void Calendar::DrawBottomInfo(uint8_t* fb, int width, int y) const {
     char buf[80];
     if (year_ == today_year_ && month_ == today_month_) {
         int weekday_idx = WeekdayOfDate(today_year_, today_month_, today_day_);
-        snprintf(buf, sizeof(buf), "今天 %d月%d日 %s",
-                 today_month_, today_day_, kWeekdayFull[weekday_idx]);
+        snprintf(buf, sizeof(buf), i18n::Tr(i18n::StringId::kTodayDDS),
+                 today_month_, today_day_, WeekdayFull(weekday_idx));
 
         // Add lunar date
         LunarDate ld = ToLunarDate(today_year_, today_month_, today_day_);
         const char* year_name = GetLunarYearName(today_year_);
         int extra_len = snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-                                 " %s年%s%s", year_name, GetLunarMonthName(ld.lunar_month), GetLunarDayName(ld.lunar_day));
+                                 i18n::Tr(i18n::StringId::kSYearSS), year_name, GetLunarMonthName(ld.lunar_month), GetLunarDayName(ld.lunar_day));
         (void)extra_len;
     } else {
         int dim = DaysInMonth(year_, month_);
-        snprintf(buf, sizeof(buf), "%d年%d月 共%d天", year_, month_, dim);
+        snprintf(buf, sizeof(buf), i18n::Tr(i18n::StringId::kDDDDays), year_, month_, dim);
     }
 
     int text_w = MeasureTextWidth(buf, small_font_);
