@@ -17,6 +17,8 @@
 #include <esp_smartconfig.h>
 #endif
 #include "ssid_manager.h"
+#include "wifi_credentials.h"
+#include "wifi_request_body.h"
 #include "sdkconfig.h"
 
 #define TAG "WifiConfigurationAp"
@@ -267,17 +269,20 @@ void WifiConfigurationAp::StartWebServer()
         .method = HTTP_GET,
         .handler = [](httpd_req_t *req) -> esp_err_t {
             auto ssid_list = SsidManager::GetInstance().GetSsidList();
-            std::string json_str = "[";
+            cJSON* list = cJSON_CreateArray();
             for (const auto& ssid : ssid_list) {
-                json_str += "\"" + ssid.ssid + "\",";
+                cJSON_AddItemToArray(list, cJSON_CreateString(ssid.ssid.c_str()));
             }
-            if (json_str.length() > 1) {
-                json_str.pop_back(); // Remove the last comma
+            char* json_str = cJSON_PrintUnformatted(list);
+            cJSON_Delete(list);
+            if (!json_str) {
+                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+                return ESP_FAIL;
             }
-            json_str += "]";
             httpd_resp_set_type(req, "application/json");
             httpd_resp_set_hdr(req, "Connection", "close");
-            httpd_resp_send(req, json_str.c_str(), HTTPD_RESP_USE_STRLEN);
+            httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
+            cJSON_free(json_str);
             return ESP_OK;
         },
         .user_ctx = NULL
@@ -353,10 +358,15 @@ void WifiConfigurationAp::StartWebServer()
             for (int i = 0; i < this_->ap_records_.size(); i++) {
                 ESP_LOGI(TAG, "SSID: %s, RSSI: %d, Authmode: %d",
                     (char *)this_->ap_records_[i].ssid, this_->ap_records_[i].rssi, this_->ap_records_[i].authmode);
-                char buf[128];
-                snprintf(buf, sizeof(buf), "{\"ssid\":\"%s\",\"rssi\":%d,\"authmode\":%d}",
-                    (char *)this_->ap_records_[i].ssid, this_->ap_records_[i].rssi, this_->ap_records_[i].authmode);
+                cJSON* record = cJSON_CreateObject();
+                cJSON_AddStringToObject(record, "ssid", (char*)this_->ap_records_[i].ssid);
+                cJSON_AddNumberToObject(record, "rssi", this_->ap_records_[i].rssi);
+                cJSON_AddNumberToObject(record, "authmode", this_->ap_records_[i].authmode);
+                char* buf = cJSON_PrintUnformatted(record);
+                cJSON_Delete(record);
+                if (!buf) return ESP_FAIL;
                 httpd_resp_sendstr_chunk(req, buf);
+                cJSON_free(buf);
                 if (i < this_->ap_records_.size() - 1) {
                     httpd_resp_sendstr_chunk(req, ",");
                 }
@@ -376,7 +386,7 @@ void WifiConfigurationAp::StartWebServer()
         .handler = [](httpd_req_t *req) -> esp_err_t {
             char *buf;
             size_t buf_len = req->content_len;
-            if (buf_len > 1024) { // 限制最大请求体大小
+            if (buf_len == 0 || buf_len > 1024) { // 限制最大请求体大小
                 httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Payload too large");
                 return ESP_FAIL;
             }
@@ -387,17 +397,19 @@ void WifiConfigurationAp::StartWebServer()
                 return ESP_FAIL;
             }
 
-            int ret = httpd_req_recv(req, buf, buf_len);
-            if (ret <= 0) {
+            int receive_result = ReadWifiRequestBody(buf, buf_len,
+                [req](char* destination, size_t remaining) {
+                    return httpd_req_recv(req, destination, remaining);
+                });
+            if (receive_result != 0) {
                 free(buf);
-                if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+                if (receive_result == HTTPD_SOCK_ERR_TIMEOUT) {
                     httpd_resp_send_408(req);
                 } else {
                     httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Failed to receive request");
                 }
                 return ESP_FAIL;
             }
-            buf[ret] = '\0';
 
             // 解析 JSON 数据
             cJSON *json = cJSON_Parse(buf);
@@ -418,8 +430,19 @@ void WifiConfigurationAp::StartWebServer()
 
             std::string ssid_str = ssid_item->valuestring;
             std::string password_str = "";
-            if (cJSON_IsString(password_item) && (password_item->valuestring != NULL) && (strlen(password_item->valuestring) < 65)) {
+            if (password_item && !cJSON_IsString(password_item)) {
+                cJSON_Delete(json);
+                httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid password type");
+                return ESP_OK;
+            }
+            if (cJSON_IsString(password_item) && password_item->valuestring) {
                 password_str = password_item->valuestring;
+            }
+            if (!wifi_credentials::Valid(ssid_str, password_str)) {
+                cJSON_Delete(json);
+                httpd_resp_set_type(req, "application/json");
+                httpd_resp_sendstr(req, "{\"success\":false,\"error\":\"SSID must be 1-32 bytes; password must be empty, 8-63 bytes, or 64 hexadecimal digits\"}");
+                return ESP_OK;
             }
 
             // 获取当前对象
@@ -690,18 +713,8 @@ void WifiConfigurationAp::StartWebServer()
 
 bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::string &password)
 {
-    if (ssid.empty()) {
-        ESP_LOGE(TAG, "SSID cannot be empty");
-        return false;
-    }
-    
-    if (ssid.length() > 32) {  // WiFi SSID 最大长度
-        ESP_LOGE(TAG, "SSID too long");
-        return false;
-    }
-
-    if (password.length() > 64) {
-        ESP_LOGE(TAG, "Password too long");
+    if (!wifi_credentials::Valid(ssid, password)) {
+        ESP_LOGE(TAG, "Invalid WiFi credential length or PSK format");
         return false;
     }
     
@@ -711,37 +724,34 @@ bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::stri
 
     wifi_config_t wifi_config;
     bzero(&wifi_config, sizeof(wifi_config));
-    strlcpy((char *)wifi_config.sta.ssid, ssid.c_str(), 32);
-    strlcpy((char *)wifi_config.sta.password, password.c_str(), 64);
+    wifi_credentials::Assign(wifi_config.sta, ssid, password);
     wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
     wifi_config.sta.failure_retry_cnt = 1;
     
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    auto ret = esp_wifi_connect();
+    auto ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    if (ret == ESP_OK) ret = esp_wifi_connect();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to connect to WiFi: %d", ret);
+        esp_wifi_disconnect();
         is_connecting_ = false;
         return false;
     }
     ESP_LOGI(TAG, "Connecting to WiFi %s", ssid.c_str());
 
-    // Wait for the connection to complete for 10 or 25 seconds
+    // Allow authentication and slower DHCP servers time to complete.
     EventBits_t bits = xEventGroupWaitBits(
         event_group_,
         WIFI_GOT_IP_BIT | WIFI_FAIL_BIT,
         pdTRUE,
         pdFALSE,
-#ifdef CONFIG_SOC_WIFI_SUPPORT_5G
-        pdMS_TO_TICKS(25000)
-#else
-        pdMS_TO_TICKS(10000)
-#endif
+        pdMS_TO_TICKS(30000)
     );
+    // End failed/timed-out attempts as well, before allowing periodic scans.
+    esp_wifi_disconnect();
     is_connecting_ = false;
 
     if (bits & WIFI_GOT_IP_BIT) {
         ESP_LOGI(TAG, "Connected to WiFi %s", ssid.c_str());
-        esp_wifi_disconnect();
         return true;
     } else {
         ESP_LOGE(TAG, "Failed to connect to WiFi %s", ssid.c_str());
@@ -772,6 +782,8 @@ void WifiConfigurationAp::WifiEventHandler(void* arg, esp_event_base_t event_bas
     } else if (event_id == WIFI_EVENT_STA_CONNECTED) {
         ESP_LOGI(TAG, "Associated with WiFi, waiting for IP address");
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        auto* event = static_cast<wifi_event_sta_disconnected_t*>(event_data);
+        ESP_LOGW(TAG, "WiFi disconnected during provisioning: reason=%u", event->reason);
         xEventGroupSetBits(self->event_group_, WIFI_FAIL_BIT);
     } else if (event_id == WIFI_EVENT_SCAN_DONE) {
         std::lock_guard<std::mutex> lock(self->mutex_);

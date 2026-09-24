@@ -1,4 +1,5 @@
 #include "wifi_station.h"
+#include "wifi_credentials.h"
 #include <cctype>
 #include <cstring>
 #include <algorithm>
@@ -834,7 +835,7 @@ void WifiStation::HandleScanResult() {
         auto it = std::find_if(ssid_list.begin(), ssid_list.end(), [ap_record](const SsidItem& item) {
             return strcmp((char *)ap_record.ssid, item.ssid.c_str()) == 0;
         });
-        if (it != ssid_list.end()) {
+        if (it != ssid_list.end() && wifi_credentials::Valid(it->ssid, it->password)) {
             ESP_LOGI(TAG, "Found AP: %s, BSSID: %02x:%02x:%02x:%02x:%02x:%02x, RSSI: %d, Channel: %d, Authmode: %d",
                 (char *)ap_record.ssid, 
                 ap_record.bssid[0], ap_record.bssid[1], ap_record.bssid[2],
@@ -875,8 +876,7 @@ void WifiStation::StartConnect() {
 
     wifi_config_t wifi_config;
     bzero(&wifi_config, sizeof(wifi_config));
-    strcpy((char *)wifi_config.sta.ssid, ap_record.ssid.c_str());
-    strcpy((char *)wifi_config.sta.password, ap_record.password.c_str());
+    if (!wifi_credentials::Assign(wifi_config.sta, ap_record.ssid, ap_record.password)) return;
     if (remember_bssid_) {
         wifi_config.sta.channel = ap_record.channel;
         memcpy(wifi_config.sta.bssid, ap_record.bssid, 6);
@@ -1024,7 +1024,7 @@ void WifiStation::WifiEventHandler(void* arg, esp_event_base_t event_base, int32
                                        [&fast_ssid](const SsidItem& item) {
                                            return item.ssid == fast_ssid;
                                        });
-                if (it != ssid_list.end()) {
+                if (it != ssid_list.end() && wifi_credentials::Valid(it->ssid, it->password)) {
                     this_->ssid_ = it->ssid;
                     this_->password_ = it->password;
                     if (this_->on_connect_) {
@@ -1033,8 +1033,7 @@ void WifiStation::WifiEventHandler(void* arg, esp_event_base_t event_base, int32
 
                     wifi_config_t wifi_config;
                     bzero(&wifi_config, sizeof(wifi_config));
-                    strcpy((char *)wifi_config.sta.ssid, it->ssid.c_str());
-                    strcpy((char *)wifi_config.sta.password, it->password.c_str());
+                    wifi_credentials::Assign(wifi_config.sta, it->ssid, it->password);
                     wifi_config.sta.channel = fast_channel;
                     memcpy(wifi_config.sta.bssid, fast_bssid, 6);
                     wifi_config.sta.bssid_set = true;
