@@ -1,0 +1,59 @@
+name: Build Firmware
+
+on:
+  push:
+    branches: [2bp, dev]
+    tags: ['v*']
+  pull_request:
+    branches: [2bp, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:release-v6.0
+    defaults:
+      run:
+        working-directory: firmware
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build firmware
+        run: |
+          . "$IDF_PATH/export.sh"
+          idf.py set-target esp32s3
+          idf.py build
+          idf.py merge-bin
+
+      - name: Determine artifact name
+        id: meta
+        run: |
+          VERSION=$(grep 'set(PROJECT_VER' CMakeLists.txt | sed -E 's/.*"([^"]+)".*/\1/')
+          BOARD="zectrix-s3-epaper-4.2"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "asset_name=${BOARD}-v${VERSION}.bin" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.asset_name }}
+          path: firmware/build/merged-binary.bin
+          if-no-files-found: error
+
+      - name: Rename binary for release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cp build/merged-binary.bin "${{ steps.meta.outputs.asset_name }}"
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: firmware/${{ steps.meta.outputs.asset_name }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
