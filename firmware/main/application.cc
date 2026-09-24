@@ -302,13 +302,18 @@ void Application::Initialize() {
                         }
                     }
                 }
+                // Update the status model before switching away from the
+                // provisioning page. SwitchPage() renders immediately, so
+                // switching first would draw the gallery with the stale
+                // disconnected icon and rely on a second, slow EPD refresh
+                // to correct it.
+                UpdateStatusBarForUi();
                 if (rawdraw_ui_manager_ &&
                     rawdraw_ui_manager_->GetCurrentPage() == ui::RawDrawPageId::APTransfer &&
                     !rawdraw_ui_manager_->IsApTransferModeRunning()) {
                     ESP_LOGI(kTag, "WiFi connected while config page is visible, returning to gallery");
                     rawdraw_ui_manager_->SwitchPage(ui::RawDrawPageId::Gallery);
                 }
-                UpdateStatusBarForUi();
                 ArmSyncSleepTimer();
                 break;
             case NetworkEvent::Disconnected:
@@ -336,15 +341,22 @@ void Application::Initialize() {
                 UpdateStatusBarForUi();
                 break;
             case NetworkEvent::WifiConfigModeExit:
-                if (rawdraw_ui_manager_ &&
-                    rawdraw_ui_manager_->GetCurrentPage() == ui::RawDrawPageId::APTransfer &&
-                    !rawdraw_ui_manager_->IsApTransferModeRunning()) {
-                    ESP_LOGI(kTag, "WiFi config AP exited, returning to gallery");
-                    rawdraw_ui_manager_->SwitchPage(ui::RawDrawPageId::Gallery);
+                {
+                    const bool connected = WifiManager::GetInstance().IsConnected();
+                    wifi_connected_.store(connected, std::memory_order_release);
+                    UpdateStatusBarForUi();
+
+                    // Leaving AP mode only means provisioning has finished;
+                    // the station may still be connecting. Keep the config
+                    // page visible until NetworkEvent::Connected so the first
+                    // gallery frame always has the correct Wi-Fi status.
+                    if (connected && rawdraw_ui_manager_ &&
+                        rawdraw_ui_manager_->GetCurrentPage() == ui::RawDrawPageId::APTransfer &&
+                        !rawdraw_ui_manager_->IsApTransferModeRunning()) {
+                        ESP_LOGI(kTag, "WiFi config AP exited while connected, returning to gallery");
+                        rawdraw_ui_manager_->SwitchPage(ui::RawDrawPageId::Gallery);
+                    }
                 }
-                wifi_connected_.store(WifiManager::GetInstance().IsConnected(),
-                                      std::memory_order_release);
-                UpdateStatusBarForUi();
                 break;
             case NetworkEvent::ModemDetecting:
             case NetworkEvent::ModemErrorNoSim:
@@ -417,9 +429,9 @@ void Application::OnBootLongPress() {
     NoteButtonActivity();
     if (WifiManager::GetInstance().IsConfigMode()) {
         ESP_LOGI(kTag, "BOOT long press - exiting WiFi config AP");
-        if (rawdraw_ui_manager_) {
-            rawdraw_ui_manager_->SwitchPage(ui::RawDrawPageId::Gallery);
-        }
+        // Do not render the gallery with the old disconnected state. The
+        // Connected event updates the status model and performs the page
+        // switch once the station has actually obtained a connection.
         WifiManager::GetInstance().StartStation();
         return;
     }
